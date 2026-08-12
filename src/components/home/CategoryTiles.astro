@@ -1,20 +1,10 @@
 ---
-import { eq } from "drizzle-orm";
-import { db } from "../../db/client";
-import { products } from "../../db/schema";
+import { loadCategoriesWithActiveProducts } from "../../db/queries";
 
 // La imagen de cada tarjeta es la foto del producto destacado (o el primero
 // activo) de esa categoría — el schema no tiene una imagen propia por
 // categoría todavía.
-const categoriesWithProducts = await db.query.categories.findMany({
-  orderBy: (categories, { asc }) => [asc(categories.sortOrder)],
-  with: {
-    products: {
-      where: eq(products.active, true),
-      orderBy: (products, { desc }) => [desc(products.featured)],
-    },
-  },
-});
+const categoriesWithProducts = await loadCategoriesWithActiveProducts();
 
 const tiles = categoriesWithProducts
   .filter((cat) => cat.products.length > 0)

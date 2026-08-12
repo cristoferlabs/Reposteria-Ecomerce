@@ -1,8 +1,6 @@
 ---
-import { eq } from "drizzle-orm";
 import { siteConfig, categoryNav } from "../../config/site";
-import { db } from "../../db/client";
-import { products } from "../../db/schema";
+import { loadCategoriesWithActiveProducts } from "../../db/queries";
 import { getSessionUser } from "../../lib/auth";
 
 interface Props {
@@ -19,15 +17,7 @@ const { cartCount = 0, transparent = false } = Astro.props;
 // El mega-menu muestra una foto por categoría igual que CategoryTiles en el
 // home (el schema no tiene una imagen propia por categoría todavía, así que
 // se usa la del producto destacado/primero activo).
-const realCategoriesRaw = await db.query.categories.findMany({
-  orderBy: (categories, { asc }) => [asc(categories.sortOrder)],
-  with: {
-    products: {
-      where: eq(products.active, true),
-      orderBy: (products, { desc }) => [desc(products.featured)],
-    },
-  },
-});
+const realCategoriesRaw = await loadCategoriesWithActiveProducts();
 // Sublista bajo cada foto: como el catálogo no tiene subcategorías en el
 // schema, se usan los productos reales de esa categoría (nombre + link
 // directo a su página) — son datos verdaderos, no secciones inventadas.

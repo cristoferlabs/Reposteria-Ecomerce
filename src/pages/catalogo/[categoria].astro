@@ -4,14 +4,13 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import ProductCard from "../../components/catalog/ProductCard.astro";
 import { db } from "../../db/client";
 import { categories, products } from "../../db/schema";
+import { attachVariants } from "../../db/queries";
 import { formatSoles } from "../../lib/orders/pricing";
 import { siteConfig } from "../../config/site";
 
 const { categoria } = Astro.params;
 
-const category = await db.query.categories.findFirst({
-  where: eq(categories.slug, categoria!),
-});
+const [category] = await db.select().from(categories).where(eq(categories.slug, categoria!)).limit(1);
 
 if (!category) {
   return Astro.rewrite("/404");
@@ -57,11 +56,13 @@ function getOrderBy(sortKey: string) {
 }
 const orderBy = getOrderBy(sort);
 
-const categoryProducts = await db.query.products.findMany({
-  where: and(...conditions),
-  orderBy,
-  with: { variants: true },
-});
+const categoryProducts = await attachVariants(
+  await db
+    .select()
+    .from(products)
+    .where(and(...conditions))
+    .orderBy(...orderBy),
+);
 
 const items = categoryProducts.map((product) => ({
   productId: product.id,

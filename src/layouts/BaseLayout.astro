@@ -11,6 +11,7 @@ import OnboardingTour from "../components/shared/OnboardingTour.astro";
 import ScrollReveal from "../components/shared/ScrollReveal.astro";
 import { db } from "../db/client";
 import { products } from "../db/schema";
+import { attachVariants } from "../db/queries";
 import { getSessionUser } from "../lib/auth";
 import { CART_COOKIE_NAME, parseCart } from "../lib/cart/cookieCart";
 import { calculateSubtotalCents, resolveUnitPriceCents } from "../lib/orders/pricing";
@@ -30,10 +31,7 @@ const rawCartItems = parseCart(Astro.cookies.get(CART_COOKIE_NAME)?.value);
 // extra es despreciable frente al resto de queries que ya hace cada página.
 const cartProductIds = [...new Set(rawCartItems.map((item) => item.productId))];
 const cartProductRows = cartProductIds.length
-  ? await db.query.products.findMany({
-      where: inArray(products.id, cartProductIds),
-      with: { variants: true },
-    })
+  ? await attachVariants(await db.select().from(products).where(inArray(products.id, cartProductIds)))
   : [];
 const cartProductById = new Map(cartProductRows.map((p) => [p.id, p]));
 

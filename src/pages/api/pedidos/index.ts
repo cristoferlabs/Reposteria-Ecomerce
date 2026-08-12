@@ -3,6 +3,7 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/db/client";
 import { orders, orderItems, orderStatusHistory, products } from "@/db/schema";
+import { attachVariants, hydrateOrdersList } from "@/db/queries";
 import { getSessionUser } from "@/lib/auth";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/json";
 import { calculateSubtotalCents, resolveUnitPriceCents } from "@/lib/orders/pricing";
@@ -13,14 +14,12 @@ export const GET: APIRoute = async ({ request }) => {
   const session = getSessionUser(request);
   if (!session) return jsonError(401, "No autenticado");
 
-  const mine = await db.query.orders.findMany({
-    where: eq(orders.customerId, session.userId),
-    orderBy: [desc(orders.createdAt)],
-    with: {
-      items: { with: { product: true, variant: true } },
-      deliveryPoint: true,
-    },
-  });
+  const orderRows = await db
+    .select()
+    .from(orders)
+    .where(eq(orders.customerId, session.userId))
+    .orderBy(desc(orders.createdAt));
+  const mine = await hydrateOrdersList(orderRows);
 
   return jsonOk({ orders: mine });
 };
@@ -34,10 +33,9 @@ export const POST: APIRoute = async ({ request }) => {
   const body = parsed.data;
 
   const productIds = [...new Set(body.items.map((item) => item.productId))];
-  const productRows = await db.query.products.findMany({
-    where: inArray(products.id, productIds),
-    with: { variants: true },
-  });
+  const productRows = await attachVariants(
+    await db.select().from(products).where(inArray(products.id, productIds)),
+  );
   const productById = new Map(productRows.map((p) => [p.id, p]));
 
   const pricedItems: Array<{

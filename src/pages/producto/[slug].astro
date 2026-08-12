@@ -2,7 +2,7 @@
 import { eq } from "drizzle-orm";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { db } from "../../db/client";
-import { products } from "../../db/schema";
+import { categories, products, productVariants } from "../../db/schema";
 import { getSessionUser } from "../../lib/auth";
 import { fetchJson, internalApiUrl } from "../../lib/http/fetchJson";
 import { formatSoles } from "../../lib/orders/pricing";
@@ -11,14 +11,23 @@ import StarRating from "../../components/shared/StarRating.astro";
 
 const { slug } = Astro.params;
 
-const product = await db.query.products.findFirst({
-  where: eq(products.slug, slug!),
-  with: { category: true, variants: true },
-});
+const [productBase] = await db.select().from(products).where(eq(products.slug, slug!)).limit(1);
 
-if (!product || !product.active) {
+if (!productBase || !productBase.active) {
   return Astro.rewrite("/404");
 }
+
+const [category, variants] = await Promise.all([
+  db
+    .select()
+    .from(categories)
+    .where(eq(categories.id, productBase.categoryId))
+    .limit(1)
+    .then((rows) => rows[0]),
+  db.select().from(productVariants).where(eq(productVariants.productId, productBase.id)),
+]);
+
+const product = { ...productBase, category, variants };
 
 const activeVariants = product.variants.filter((v) => v.active).sort((a, b) => a.sortOrder - b.sortOrder);
 

@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { orders } from "@/db/schema";
+import { hydrateOrderForCustomer } from "@/db/queries";
 import { getSessionUser } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/lib/http/json";
 import { buildOrderWhatsAppLink } from "@/lib/whatsapp/buildLink";
@@ -18,21 +19,14 @@ export const GET: APIRoute = async ({ params, request }) => {
   if (!session) return jsonError(401, "No autenticado");
 
   const publicId = params.publicId!;
-  const order = await db.query.orders.findFirst({
-    where: eq(orders.publicId, publicId),
-    with: {
-      customer: true,
-      items: { with: { product: true, variant: true } },
-      statusHistory: { orderBy: (h, { asc }) => [asc(h.createdAt)] },
-      payments: true,
-      deliveryPoint: true,
-    },
-  });
+  const [orderRow] = await db.select().from(orders).where(eq(orders.publicId, publicId)).limit(1);
 
   // 404 en vez de 403 para no revelar la existencia de pedidos ajenos.
-  if (!order || (order.customerId !== session.userId && session.role !== "admin")) {
+  if (!orderRow || (orderRow.customerId !== session.userId && session.role !== "admin")) {
     return jsonError(404, "Pedido no encontrado");
   }
+
+  const order = await hydrateOrderForCustomer(orderRow);
 
   const payments = order.payments.map(({ rawPayload, ...rest }) => rest);
 

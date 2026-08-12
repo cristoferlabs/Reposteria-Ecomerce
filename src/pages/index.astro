@@ -6,16 +6,16 @@ import CategoryTiles from "../components/home/CategoryTiles.astro";
 import PromoSplit from "../components/home/PromoSplit.astro";
 import FeaturedGrid from "../components/home/FeaturedGrid.astro";
 import ReviewsCarousel from "../components/home/ReviewsCarousel.astro";
+import { asc } from "drizzle-orm";
 import { db } from "../db/client";
 import { products } from "../db/schema";
+import { attachVariants } from "../db/queries";
 import { formatSoles } from "../lib/orders/pricing";
 import { siteConfig } from "../config/site";
 
-const featuredProducts = await db.query.products.findMany({
-  where: eq(products.featured, true),
-  orderBy: (products, { asc }) => [asc(products.name)],
-  with: { variants: true },
-});
+const featuredProducts = await attachVariants(
+  await db.select().from(products).where(eq(products.featured, true)).orderBy(asc(products.name)),
+);
 
 const featured = featuredProducts.map((product) => ({
   productId: product.id,

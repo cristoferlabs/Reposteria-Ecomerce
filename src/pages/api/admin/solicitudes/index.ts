@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { orders, ORDER_STATUSES, type OrderStatus } from "@/db/schema";
+import { hydrateOrdersList } from "@/db/queries";
 import { requireAdmin } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/lib/http/json";
 
@@ -19,15 +20,12 @@ export const GET: APIRoute = async ({ request, url }) => {
   }
   const statusFilter: OrderStatus | null = rawStatus && isOrderStatus(rawStatus) ? rawStatus : null;
 
-  const list = await db.query.orders.findMany({
-    where: statusFilter ? eq(orders.status, statusFilter) : undefined,
-    orderBy: [desc(orders.createdAt)],
-    with: {
-      customer: true,
-      items: { with: { product: true, variant: true } },
-      deliveryPoint: true,
-    },
-  });
+  const orderRows = await db
+    .select()
+    .from(orders)
+    .where(statusFilter ? eq(orders.status, statusFilter) : undefined)
+    .orderBy(desc(orders.createdAt));
+  const list = await hydrateOrdersList(orderRows);
 
   return jsonOk({ orders: list });
 };
