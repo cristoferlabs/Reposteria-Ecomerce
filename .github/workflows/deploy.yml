@@ -71,7 +71,7 @@ jobs:
         run: npm run build
 
       - name: Upload app to server
-        uses: burnett01/rsync-deployments@7.0.2
+        uses: burnett01/rsync-deployments@8.0.0
         with:
           switches: >-
             -az --delete
@@ -98,26 +98,48 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
-          envs: DB_HOST,DB_PORT,DB_USER,DB_PASSWORD,DB_NAME,NODE_ENV_SOURCE,DEPLOY_PATH
+          envs: DB_HOST,DB_PORT,DB_USER,DB_PASSWORD,DB_NAME,DEPLOY_PATH
           script: |
-            set -e
-            cd "$DEPLOY_PATH"
+            set -euo pipefail
 
-            if [ -n "$NODE_ENV_SOURCE" ] && [ -f "$NODE_ENV_SOURCE" ]; then
-              # shellcheck disable=SC1090
-              source "$NODE_ENV_SOURCE"
+            APP_ROOT="${DEPLOY_PATH}"
+            if [ -z "$APP_ROOT" ]; then
+              echo "DEPLOY_PATH secret is empty" >&2
+              exit 1
             fi
+            cd "$APP_ROOT"
+            echo "In $APP_ROOT"
+
+            # Node de cPanel (Setup Node.js App). Sin esto, no hay node/npm en PATH.
+            ACTIVATE="$HOME/nodevenv/tienda.mikelvra.com/20/bin/activate"
+            if [ ! -f "$ACTIVATE" ]; then
+              echo "Missing activate script: $ACTIVATE" >&2
+              exit 1
+            fi
+            # shellcheck disable=SC1090
+            source "$ACTIVATE"
+            echo "Using $(node -v) / npm $(npm -v)"
+
+            # drizzle-kit lee process.env / .env (sin espacios de indentación)
+            umask 077
+            {
+              printf 'DB_HOST=%s\n' "$DB_HOST"
+              printf 'DB_PORT=%s\n' "$DB_PORT"
+              printf 'DB_USER=%s\n' "$DB_USER"
+              printf 'DB_PASSWORD=%s\n' "$DB_PASSWORD"
+              printf 'DB_NAME=%s\n' "$DB_NAME"
+            } > .env
 
             npm ci
             npx drizzle-kit migrate
             npm prune --omit=dev
+            rm -f .env
 
             mkdir -p tmp
             touch tmp/restart.txt
             echo "Deploy OK: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-          NODE_ENV_SOURCE: ${{ secrets.NODE_ENV_SOURCE }}
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}
           DB_USER: ${{ secrets.DB_USER }}
