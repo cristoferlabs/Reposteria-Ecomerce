@@ -81,6 +81,7 @@ jobs:
             --exclude .env.*
             --exclude node_modules
             --exclude .astro
+            --exclude .htaccess
             --exclude assets-originals
             --exclude '*.db'
             --exclude '*.db-journal'
