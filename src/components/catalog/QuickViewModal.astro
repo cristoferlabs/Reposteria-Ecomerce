@@ -1,7 +1,10 @@
 ---
 // Modal compartido: se renderiza una sola vez (en BaseLayout) y cualquier
 // ProductCard de la página lo abre disparando el evento "open-quick-view"
-// en document, con los datos del producto clickeado.
+// en document, con el producto completo (incluidas variantes) como detail.
+// Enriquecido para permitir elegir variante y agregar al pedido sin salir
+// del modal — antes solo era una vista previa que mandaba a la página del
+// producto para poder comprar.
 ---
 
 <div
@@ -10,7 +13,7 @@
 >
   <div
     id="quick-view-panel"
-    class="w-full max-w-lg translate-y-2 scale-95 rounded-2xl bg-white p-6 shadow-2xl transition-all duration-200 sm:p-8"
+    class="w-full max-w-2xl translate-y-2 scale-95 rounded-2xl bg-white p-6 shadow-2xl transition-all duration-200 sm:p-8"
   >
     <div class="flex items-start justify-between">
       <p class="font-body text-xs font-semibold tracking-widest text-pink-strong uppercase">Vista rápida</p>
@@ -26,21 +29,31 @@
       </button>
     </div>
 
-    <div class="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:items-center">
+    <div class="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2 sm:items-start">
       <div class="aspect-square overflow-hidden rounded-xl bg-neutral-100">
         <img id="quick-view-image" src="" alt="" class="h-full w-full object-cover" />
       </div>
       <div>
         <h3 id="quick-view-name" class="font-display text-xl font-semibold text-charcoal" />
         <p id="quick-view-price" class="mt-2 font-body text-lg font-semibold text-pink-strong" />
-        <p class="mt-3 font-body text-xs text-charcoal/60">
-          Listo en 2-3 días · envíos a todo Lima, también disponible con entrega urgente en productos seleccionados.
-        </p>
-        <a
-          id="quick-view-link"
-          href="#"
-          class="mt-6 inline-block rounded-full bg-pink-strong px-6 py-2.5 text-center font-body text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-charcoal hover:shadow-md"
+        <p id="quick-view-description" class="mt-3 text-sm leading-relaxed text-charcoal/70"></p>
+
+        <div id="quick-view-variants" class="mt-4 hidden">
+          <p class="font-body text-xs font-semibold tracking-wide text-charcoal/80 uppercase">Presentación</p>
+          <div id="quick-view-variants-list" class="mt-2 flex flex-wrap gap-2"></div>
+        </div>
+
+        <p id="quick-view-leadtime" class="mt-4 text-xs text-charcoal/60"></p>
+
+        <button
+          type="button"
+          id="quick-view-add"
+          class="mt-6 block w-full rounded-full bg-pink-strong px-6 py-3 text-center font-body text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-charcoal hover:shadow-md"
         >
+          Agregar a mi pedido
+        </button>
+        <p id="quick-view-add-error" class="mt-2 hidden text-xs text-red-600"></p>
+        <a id="quick-view-link" href="#" class="mt-3 block text-center font-body text-xs font-medium text-charcoal/50 hover:text-pink-strong">
           Ver detalles completos
         </a>
       </div>
@@ -49,11 +62,25 @@
 </div>
 
 <script>
-  interface QuickViewDetail {
+  import { readCartFromDocument, writeCartToDocument } from "../../lib/cart/cookieCart";
+
+  interface Variant {
+    id: number;
     name: string;
-    price: string;
+    priceDeltaCents: number;
+  }
+
+  interface QuickViewDetail {
+    productId: number;
+    name: string;
+    priceLabel: string;
+    basePriceCents: number;
     image: string;
     href: string;
+    description: string | null;
+    variants: Variant[];
+    leadTimeDays: number;
+    allowsUrgent: boolean;
   }
 
   const overlay = document.getElementById("quick-view-overlay");
@@ -62,17 +89,76 @@
   const imgEl = document.getElementById("quick-view-image") as HTMLImageElement | null;
   const nameEl = document.getElementById("quick-view-name");
   const priceEl = document.getElementById("quick-view-price");
+  const descEl = document.getElementById("quick-view-description");
+  const variantsWrap = document.getElementById("quick-view-variants");
+  const variantsList = document.getElementById("quick-view-variants-list");
+  const leadtimeEl = document.getElementById("quick-view-leadtime");
+  const addBtn = document.getElementById("quick-view-add") as HTMLButtonElement | null;
+  const addErrorEl = document.getElementById("quick-view-add-error");
   const linkEl = document.getElementById("quick-view-link") as HTMLAnchorElement | null;
+
+  function formatSoles(cents: number): string {
+    return `S/ ${(cents / 100).toFixed(2)}`;
+  }
+
+  let current: QuickViewDetail | null = null;
+  let selectedVariantId: number | null = null;
+
+  function updatePrice() {
+    if (!current || !priceEl) return;
+    const variant = current.variants.find((v) => v.id === selectedVariantId);
+    priceEl.textContent = formatSoles(current.basePriceCents + (variant?.priceDeltaCents ?? 0));
+  }
+
+  function renderVariants() {
+    if (!current || !variantsWrap || !variantsList) return;
+    if (current.variants.length === 0) {
+      variantsWrap.classList.add("hidden");
+      variantsList.innerHTML = "";
+      return;
+    }
+    variantsWrap.classList.remove("hidden");
+    variantsList.innerHTML = current.variants
+      .map(
+        (v, i) => `
+        <label class="cursor-pointer rounded-full border border-charcoal/20 px-4 py-2 text-sm text-charcoal has-[:checked]:border-pink-strong has-[:checked]:bg-pink-strong has-[:checked]:text-white">
+          <input type="radio" name="quick-view-variant" value="${v.id}" class="sr-only" ${i === 0 ? "checked" : ""} />
+          ${v.name}
+        </label>`,
+      )
+      .join("");
+    variantsList.querySelectorAll<HTMLInputElement>('input[name="quick-view-variant"]').forEach((input) => {
+      input.addEventListener("change", () => {
+        selectedVariantId = Number(input.value);
+        updatePrice();
+      });
+    });
+  }
 
   function openModal(detail: QuickViewDetail) {
     if (!overlay || !panel) return;
+    current = detail;
+    selectedVariantId = detail.variants[0]?.id ?? null;
+
     if (imgEl) {
       imgEl.src = detail.image;
       imgEl.alt = detail.name;
     }
     if (nameEl) nameEl.textContent = detail.name;
-    if (priceEl) priceEl.textContent = detail.price;
+    if (descEl) {
+      descEl.textContent = detail.description ?? "";
+      descEl.classList.toggle("hidden", !detail.description);
+    }
+    if (leadtimeEl) {
+      leadtimeEl.textContent = detail.allowsUrgent
+        ? `Listo en ${detail.leadTimeDays} día${detail.leadTimeDays > 1 ? "s" : ""} · también disponible con entrega urgente`
+        : `Requiere ${detail.leadTimeDays} días de anticipación`;
+    }
     if (linkEl) linkEl.href = detail.href;
+    addErrorEl?.classList.add("hidden");
+
+    renderVariants();
+    updatePrice();
 
     overlay.classList.remove("invisible", "opacity-0");
     overlay.classList.add("opacity-100");
@@ -101,5 +187,32 @@
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeModal();
+  });
+
+  addBtn?.addEventListener("click", () => {
+    if (!current) return;
+    addErrorEl?.classList.add("hidden");
+
+    const items = readCartFromDocument();
+    const existing = items.find(
+      (item) => item.productId === current!.productId && item.variantId === selectedVariantId,
+    );
+    if (existing) {
+      existing.quantity += 1;
+    } else {
+      items.push({
+        productId: current.productId,
+        variantId: selectedVariantId,
+        quantity: 1,
+        customizationNotes: null,
+      });
+    }
+    writeCartToDocument(items);
+
+    // Mismo patrón que el resto del sitio: escribir cookie + recargar con el
+    // flag de reapertura — el CartDrawer resuelve sus líneas server-side en
+    // BaseLayout, así que necesita el reload para reflejar el nuevo ítem.
+    sessionStorage.setItem("cart-drawer-open", "1");
+    window.location.reload();
   });
 </script>

@@ -3,9 +3,51 @@ import { siteConfig, footerNav } from "../../config/site";
 
 const year = new Date().getFullYear();
 const paymentMethods = ["Visa", "Mastercard", "Mercado Pago", "Yape", "Plin"];
+
+const trustPoints = [
+  {
+    title: "Hecho con cuidado",
+    text: "Ingredientes seleccionados y detalles que se notan en cada bocado.",
+  },
+  {
+    title: "Fresco, nunca de stock",
+    text: "Cada pedido se prepara desde cero para la fecha que elegiste.",
+  },
+  {
+    title: "Para repetir siempre",
+    text: "Sabores pensados para que vuelvas a pedir una y otra vez.",
+  },
+];
 ---
 
-<footer class="w-full bg-charcoal text-cream">
+<section class="w-full bg-cream px-4 py-14 sm:py-16" data-reveal>
+  <div class="mx-auto grid max-w-6xl grid-cols-1 gap-10 text-center sm:grid-cols-3" data-reveal-group>
+    {
+      trustPoints.map((point) => (
+        <div data-reveal-item>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+            class="mx-auto h-9 w-9 text-pink-strong"
+          >
+            <path
+              d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4L12 3Z"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <p class="mt-4 font-display text-lg font-semibold text-charcoal">{point.title}</p>
+          <p class="mx-auto mt-2 max-w-xs font-body text-sm leading-relaxed text-charcoal/70">{point.text}</p>
+        </div>
+      ))
+    }
+  </div>
+</section>
+
+<footer class="w-full bg-charcoal text-cream" data-reveal>
   <div class="mx-auto max-w-7xl px-4 py-12 md:px-6">
     <div class="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
       <!-- Sobre nosotros -->

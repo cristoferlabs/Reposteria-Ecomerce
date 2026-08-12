@@ -1,11 +1,23 @@
 ---
 import ProductCard from "../catalog/ProductCard.astro";
 
+interface Variant {
+  id: number;
+  name: string;
+  priceDeltaCents: number;
+}
+
 interface Item {
+  productId: number;
   name: string;
   priceLabel: string;
+  basePriceCents: number;
   image: string;
   href: string;
+  description?: string | null;
+  variants?: Variant[];
+  leadTimeDays?: number;
+  allowsUrgent?: boolean;
   hasVariants?: boolean;
 }
 
@@ -17,9 +29,13 @@ interface Props {
 const { title, items } = Astro.props;
 ---
 
-<section class="mx-auto max-w-7xl px-4 py-12 md:px-6 md:py-16">
+<section class="mx-auto max-w-7xl px-4 py-12 md:px-6 md:py-16" data-reveal>
   <h2 class="text-center font-display text-2xl font-semibold text-charcoal sm:text-3xl">{title}</h2>
-  <div class="mt-8 grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-4 md:gap-8">
-    {items.map((item) => <ProductCard {...item} />)}
+  <div class="mt-8 grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-4 md:gap-8" data-reveal-group>
+    {items.map((item) => (
+      <div data-reveal-item>
+        <ProductCard {...item} />
+      </div>
+    ))}
   </div>
 </section>

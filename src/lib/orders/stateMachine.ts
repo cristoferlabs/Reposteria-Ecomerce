@@ -28,13 +28,22 @@ const TRANSITIONS: Record<OrderStatus, TransitionRule[]> = {
   // La "negociación" termina aquí: una vez elegida la modalidad de entrega y
   // generada la preferencia de pago, ya no se permite cancelar por API
   // (requeriría lógica de reembolso que no está definida).
+  //
+  // El salto directo a "pago_inicial_confirmado" con actor "admin" (acá y en
+  // pago_inicial_pendiente más abajo) es un override MANUAL solo para
+  // pruebas/QA — permite avanzar un pedido de prueba a "pagado" sin depender
+  // del webhook real de Mercado Pago (ej. cuando el sandbox falla). El flujo
+  // real de cobro sigue siendo exclusivamente vía webhook, actor "sistema".
+  // El endpoint que usa esta ruta (confirmar-pago-manual.ts) está bloqueado
+  // fuera de desarrollo local — ver el comentario ahí sobre por qué.
   tomado: [
     { to: "pago_inicial_pendiente", allowedActors: ["cliente"] },
+    { to: "pago_inicial_confirmado", allowedActors: ["admin"] },
     { to: "cancelado", allowedActors: ["cliente", "admin"] },
   ],
   rechazado: [],
   cancelado: [],
-  pago_inicial_pendiente: [{ to: "pago_inicial_confirmado", allowedActors: ["sistema"] }],
+  pago_inicial_pendiente: [{ to: "pago_inicial_confirmado", allowedActors: ["sistema", "admin"] }],
   pago_inicial_confirmado: [{ to: "en_preparacion", allowedActors: ["admin"] }],
   en_preparacion: [{ to: "listo", allowedActors: ["admin"] }],
   listo: [{ to: "entregado", allowedActors: ["admin"] }],

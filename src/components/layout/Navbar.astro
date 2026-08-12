@@ -1,26 +1,67 @@
 ---
+import { eq } from "drizzle-orm";
 import { siteConfig, categoryNav } from "../../config/site";
 import { db } from "../../db/client";
+import { products } from "../../db/schema";
 import { getSessionUser } from "../../lib/auth";
 
 interface Props {
   cartCount?: number;
+  /** Transparente sobre el hero, pasa a blanco sólido al hacer scroll — solo tiene sentido en páginas con una foto grande justo debajo (hoy, solo el home). */
+  transparent?: boolean;
 }
 
-const { cartCount = 0 } = Astro.props;
+const { cartCount = 0, transparent = false } = Astro.props;
 
 // Categorías reales para el dropdown del primer link de navegación — el
 // resto de categoryNav sigue siendo la navegación aspiracional del sitio
 // (algunas rutas todavía no existen), pero el dropdown no debe mentir.
-const realCategories = await db.query.categories.findMany({
+// El mega-menu muestra una foto por categoría igual que CategoryTiles en el
+// home (el schema no tiene una imagen propia por categoría todavía, así que
+// se usa la del producto destacado/primero activo).
+const realCategoriesRaw = await db.query.categories.findMany({
   orderBy: (categories, { asc }) => [asc(categories.sortOrder)],
+  with: {
+    products: {
+      where: eq(products.active, true),
+      orderBy: (products, { desc }) => [desc(products.featured)],
+    },
+  },
 });
+// Sublista bajo cada foto: como el catálogo no tiene subcategorías en el
+// schema, se usan los productos reales de esa categoría (nombre + link
+// directo a su página) — son datos verdaderos, no secciones inventadas.
+const realCategories = realCategoriesRaw
+  .filter((cat) => cat.products.length > 0)
+  .map((cat) => ({
+    slug: cat.slug,
+    name: cat.name,
+    count: cat.products.length,
+    image: cat.products[0].imageUrl,
+    items: cat.products.slice(0, 4).map((p) => ({ name: p.name, slug: p.slug })),
+  }));
 
 const session = getSessionUser(Astro.request);
 const firstName = session?.name.split(" ")[0];
+
+// Clases de texto/ícono reutilizadas en todo el header — cuando es
+// transparente arrancan blancas y pasan a charcoal solo vía CSS
+// (group-data-[scrolled=true]) apenas el script le agrega el atributo al
+// header, sin tener que tocar cada ícono desde JS.
+const fg = transparent ? "text-white group-data-[scrolled=true]:text-charcoal" : "text-charcoal";
+const fgMuted = transparent ? "text-white/80 group-data-[scrolled=true]:text-charcoal/70" : "text-charcoal/70";
+const hoverBg = transparent ? "hover:bg-white/15 group-data-[scrolled=true]:hover:bg-pink-soft/40" : "hover:bg-pink-soft/40";
 ---
 
-<header class="sticky top-0 z-50 border-b border-charcoal/10 bg-white/95 backdrop-blur">
+<header
+  id="navbar-header"
+  data-scrolled={transparent ? "false" : undefined}
+  class={
+    transparent
+      ? "group w-full transition-colors duration-300 data-[scrolled=true]:border-b data-[scrolled=true]:border-charcoal/10 data-[scrolled=true]:bg-white/95 data-[scrolled=true]:backdrop-blur"
+      : "sticky top-0 z-50 border-b border-charcoal/10 bg-white/95 backdrop-blur"
+  }
+>
   <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
     <!-- Izquierda: logo/marca -->
     <a href="/" class="shrink-0">
@@ -28,7 +69,7 @@ const firstName = session?.name.split(" ")[0];
     </a>
 
     <!-- Centro: categorías (desktop) -->
-    <ul class="hidden items-center gap-8 font-body text-sm font-medium text-charcoal md:flex">
+    <ul class={`hidden items-center gap-8 font-body text-sm font-medium md:flex ${fg}`}>
       {
         categoryNav.map((item, index) =>
           index === 0 ? (
@@ -54,16 +95,49 @@ const firstName = session?.name.split(" ")[0];
               </button>
               <div
                 id="nav-dropdown-panel"
-                class="invisible absolute top-full left-1/2 z-40 mt-3 w-64 -translate-x-1/2 translate-y-1 rounded-xl border border-charcoal/10 bg-white p-2 opacity-0 shadow-lg transition-all duration-200"
+                class="invisible absolute top-full left-1/2 z-40 mt-3 w-max max-w-[92vw] -translate-x-1/2 translate-y-1 rounded-xl border border-charcoal/10 bg-white p-5 text-charcoal opacity-0 shadow-lg transition-all duration-200"
               >
-                {realCategories.map((cat) => (
-                  <a
-                    href={`/catalogo/${cat.slug}`}
-                    class="block rounded-lg px-3 py-2 text-sm text-charcoal transition-colors hover:bg-pink-soft/20 hover:text-pink-strong"
-                  >
-                    {cat.name}
-                  </a>
-                ))}
+                <div class="flex flex-wrap justify-center gap-5">
+                  {realCategories.map((cat) => (
+                    <div class="w-28 shrink-0">
+                      <a href={`/catalogo/${cat.slug}`} class="group block">
+                        <div class="overflow-hidden rounded-lg bg-neutral-100">
+                          <img
+                            src={cat.image}
+                            alt={cat.name}
+                            loading="lazy"
+                            class="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
+                        </div>
+                        <p class="mt-2 font-body text-xs font-semibold text-charcoal transition-colors group-hover:text-pink-strong">
+                          {cat.name}
+                        </p>
+                      </a>
+                      <ul class="mt-1.5 space-y-1">
+                        {cat.items.map((item) => (
+                          <li>
+                            <a
+                              href={`/producto/${item.slug}`}
+                              class="block truncate text-[11px] text-charcoal/60 transition-colors hover:text-pink-strong"
+                            >
+                              {item.name}
+                            </a>
+                          </li>
+                        ))}
+                        {cat.count > cat.items.length && (
+                          <li>
+                            <a
+                              href={`/catalogo/${cat.slug}`}
+                              class="block text-[11px] font-medium text-pink-strong hover:underline"
+                            >
+                              Ver todo ({cat.count})
+                            </a>
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
               </div>
             </li>
           ) : (
@@ -90,18 +164,18 @@ const firstName = session?.name.split(" ")[0];
                 Panel admin
               </a>
             )}
-            <span class="hidden font-body text-sm text-charcoal/70 sm:inline">Hola, {firstName}</span>
+            <span class={`hidden font-body text-sm sm:inline ${fgMuted}`}>Hola, {firstName}</span>
             <button
               type="button"
               id="orders-toggle"
-              class="hidden rounded-full px-3 py-1.5 font-body text-xs font-semibold text-charcoal transition-colors hover:bg-pink-soft/40 sm:inline-block"
+              class={`hidden rounded-full px-3 py-1.5 font-body text-xs font-semibold transition-colors sm:inline-block ${fg} ${hoverBg}`}
             >
               Mis pedidos
             </button>
             <a
               href="/api/auth/logout"
               aria-label="Cerrar sesión"
-              class="rounded-full p-2 text-charcoal transition-colors hover:bg-pink-soft/40"
+              class={`rounded-full p-2 transition-colors ${fg} ${hoverBg}`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5">
                 <path d="M15 17v1a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1" stroke-linecap="round" stroke-linejoin="round" />
@@ -113,7 +187,7 @@ const firstName = session?.name.split(" ")[0];
           <a
             href="/cuenta/acceso"
             aria-label="Iniciar sesión"
-            class="rounded-full p-2 text-charcoal transition-colors hover:bg-pink-soft/40"
+            class={`rounded-full p-2 transition-colors ${fg} ${hoverBg}`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5">
               <circle cx="12" cy="8" r="3.5" />
@@ -128,7 +202,7 @@ const firstName = session?.name.split(" ")[0];
         id="search-toggle"
         aria-label="Buscar"
         aria-expanded="false"
-        class="rounded-full p-2 text-charcoal transition-colors hover:bg-pink-soft/40"
+        class={`rounded-full p-2 transition-colors ${fg} ${hoverBg}`}
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5">
           <circle cx="11" cy="11" r="7" />
@@ -140,7 +214,7 @@ const firstName = session?.name.split(" ")[0];
         type="button"
         id="cart-toggle"
         aria-label="Ver mi pedido"
-        class="relative rounded-full p-2 text-charcoal transition-colors hover:bg-pink-soft/40"
+        class={`relative rounded-full p-2 transition-colors ${fg} ${hoverBg}`}
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5">
           <path d="M6 8h12l-1 12H7L6 8Z" stroke-linejoin="round" />
@@ -160,7 +234,7 @@ const firstName = session?.name.split(" ")[0];
         id="mobile-menu-toggle"
         aria-label="Abrir menú"
         aria-expanded="false"
-        class="rounded-full p-2 text-charcoal transition-colors hover:bg-pink-soft/40 md:hidden"
+        class={`rounded-full p-2 transition-colors md:hidden ${fg} ${hoverBg}`}
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5">
           <path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round" />
@@ -291,4 +365,16 @@ const firstName = session?.name.split(" ")[0];
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeDropdown();
   });
+
+  // Navbar transparente-a-blanco (solo cuando la prop `transparent` está
+  // activa, detectable porque el header nace con data-scrolled).
+  const navHeader = document.getElementById("navbar-header");
+  if (navHeader && navHeader.hasAttribute("data-scrolled")) {
+    const threshold = Math.min(400, window.innerHeight * 0.5);
+    function updateScrolled() {
+      navHeader!.dataset.scrolled = window.scrollY > threshold ? "true" : "false";
+    }
+    updateScrolled();
+    window.addEventListener("scroll", updateScrolled, { passive: true });
+  }
 </script>

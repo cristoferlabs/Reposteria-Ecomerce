@@ -64,11 +64,20 @@ const categoryProducts = await db.query.products.findMany({
 });
 
 const items = categoryProducts.map((product) => ({
+  productId: product.id,
   name: product.name,
   priceLabel: formatSoles(product.basePriceCents),
+  basePriceCents: product.basePriceCents,
   image: product.imageUrl,
   href: `/producto/${product.slug}`,
-  hasVariants: product.variants.length > 0,
+  description: product.description,
+  variants: product.variants
+    .filter((v) => v.active)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((v) => ({ id: v.id, name: v.name, priceDeltaCents: v.priceDeltaCents })),
+  leadTimeDays: product.leadTimeDays,
+  allowsUrgent: product.allowsUrgent,
+  hasVariants: product.variants.some((v) => v.active),
 }));
 
 const hasActiveFilters = urgentOnly || Boolean(minPriceParam) || Boolean(maxPriceParam) || sort !== "destacados";
@@ -178,9 +187,11 @@ const hasActiveFilters = urgentOnly || Boolean(minPriceParam) || Boolean(maxPric
         </p>
         {
           items.length > 0 ? (
-            <div class="grid grid-cols-2 gap-x-6 gap-y-10 lg:grid-cols-3">
+            <div class="grid grid-cols-2 gap-x-6 gap-y-10 lg:grid-cols-3" data-reveal-group>
               {items.map((item) => (
-                <ProductCard {...item} />
+                <div data-reveal-item>
+                  <ProductCard {...item} />
+                </div>
               ))}
             </div>
           ) : (

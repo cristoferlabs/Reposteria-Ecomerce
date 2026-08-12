@@ -1,58 +1,62 @@
 ---
-// Tour de onboarding: carrusel de pasos en un modal, mismo patrón visual de
-// overlay+panel con fade que ya usan QuickViewModal.astro/CartDrawer.astro.
+// Tour de onboarding tipo "coach mark": en vez de un modal que tapa la
+// pantalla y solo narra los pasos, señala el elemento real de la interfaz
+// (navbar, botón de vista rápida, carrito, mis pedidos) con un spotlight +
+// una tarjeta flotante al lado, y hace scroll con transición hasta cada uno.
+// Los pasos que no corresponden a algo visible en esta página (revisión del
+// repostero, pago, ya que ocurren en otro momento/pantalla) se muestran como
+// tarjeta centrada, misma UI, sin spotlight.
 // Se monta una sola vez en BaseLayout. Se abre solo en la primera visita
 // (localStorage) y se puede reabrir a mano disparando el evento "open-tour"
 // en document (mismo patrón que "open-cart"/"open-quick-view") — el trigger
 // manual vive en Footer.astro ("¿Cómo funciona?").
 ---
 
-<div
-  id="tour-overlay"
-  class="invisible fixed inset-0 z-70 flex items-center justify-center bg-charcoal/60 p-4 opacity-0 transition-opacity duration-200"
->
+<div id="tour-root" class="fixed inset-0 z-70 hidden">
+  <!-- Un solo elemento hace de spotlight: su box-shadow gigante oscurece
+       todo menos su propio rectángulo, que se mueve con transición hasta
+       calzar sobre el elemento real señalado (o cubre toda la pantalla
+       cuando el paso no tiene un elemento al que apuntar). -->
+  <div id="tour-spotlight" class="pointer-events-none fixed rounded-2xl transition-all duration-300 ease-out"></div>
+
   <div
-    id="tour-panel"
-    class="w-full max-w-md translate-y-2 scale-95 rounded-2xl bg-white p-6 shadow-2xl transition-all duration-200 sm:p-8"
+    id="tour-card"
+    class="pointer-events-auto fixed w-[min(90vw,20rem)] rounded-2xl bg-white p-5 shadow-2xl transition-all duration-300 ease-out"
   >
-    <div class="flex items-start justify-between">
-      <p class="font-body text-xs font-semibold tracking-widest text-pink-strong uppercase">Cómo funciona</p>
+    <div class="flex items-start justify-between gap-3">
+      <p id="tour-step-label" class="font-body text-xs font-semibold tracking-widest text-pink-strong uppercase"></p>
       <button
         type="button"
         id="tour-close"
         aria-label="Cerrar"
-        class="rounded-full p-1 text-charcoal/50 transition-colors hover:bg-charcoal/5 hover:text-charcoal"
+        class="-m-1 shrink-0 rounded-full p-1 text-charcoal/50 transition-colors hover:bg-charcoal/5 hover:text-charcoal"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
           <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round" />
         </svg>
       </button>
     </div>
+    <h3 id="tour-title" class="mt-2 font-display text-lg font-semibold text-charcoal"></h3>
+    <p id="tour-description" class="mt-1.5 text-sm leading-relaxed text-charcoal/70"></p>
 
-    <div class="mt-6 flex justify-center">
-      <span id="tour-icon" class="flex h-14 w-14 items-center justify-center rounded-full bg-pink-soft/40 text-pink-strong"></span>
-    </div>
-    <h3 id="tour-title" class="mt-4 text-center font-display text-xl font-semibold text-charcoal"></h3>
-    <p id="tour-description" class="mt-2 text-center text-sm leading-relaxed text-charcoal/70"></p>
+    <div id="tour-dots" class="mt-4 flex gap-1.5"></div>
 
-    <div id="tour-dots" class="mt-6 flex justify-center gap-1.5"></div>
-
-    <div class="mt-6 flex items-center justify-between gap-3">
-      <button type="button" id="tour-skip" class="font-body text-sm font-medium text-charcoal/50 hover:text-charcoal">
-        Saltar
+    <div class="mt-4 flex items-center justify-between gap-3">
+      <button type="button" id="tour-skip" class="font-body text-xs font-medium text-charcoal/50 hover:text-charcoal">
+        Saltar tour
       </button>
       <div class="flex gap-2">
         <button
           type="button"
           id="tour-prev"
-          class="rounded-full border border-charcoal/20 px-4 py-2 font-body text-sm font-semibold text-charcoal transition-colors hover:bg-charcoal/5"
+          class="rounded-full border border-charcoal/20 px-3 py-1.5 font-body text-xs font-semibold text-charcoal transition-colors hover:bg-charcoal/5"
         >
           Anterior
         </button>
         <button
           type="button"
           id="tour-next"
-          class="rounded-full bg-pink-strong px-5 py-2 font-body text-sm font-semibold text-white transition-colors hover:bg-charcoal"
+          class="rounded-full bg-pink-strong px-4 py-1.5 font-body text-xs font-semibold text-white transition-colors hover:bg-charcoal"
         >
           Siguiente
         </button>
@@ -63,36 +67,63 @@
 
 <script>
   interface TourStep {
-    icon: string;
     title: string;
     description: string;
+    /** Selector CSS del elemento real a señalar. Si falta, o el elemento no
+     * está visible en esta página/tamaño de pantalla, el paso se muestra
+     * como tarjeta centrada sin spotlight. */
+    target?: string;
   }
 
-  const ICONS = {
-    browse: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-7 w-7"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>',
-    cart: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-7 w-7"><path d="M6 8h12l-1 12H7L6 8Z" stroke-linejoin="round"/><path d="M9 8V6a3 3 0 0 1 6 0v2" stroke-linecap="round"/></svg>',
-    send: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-7 w-7"><path d="m3 11 18-8-8 18-2-8-8-2Z" stroke-linejoin="round"/></svg>',
-    review: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-7 w-7"><path d="M8 12h8M8 16h5M21 12c0 4.4-4 8-9 8-1.3 0-2.6-.2-3.7-.7L3 20l1-4.2C3.4 14.5 3 13.3 3 12c0-4.4 4-8 9-8s9 3.6 9 8Z" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    payment: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-7 w-7"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20" stroke-linecap="round"/></svg>',
-    tracking: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-7 w-7"><circle cx="12" cy="10" r="3"/><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z" stroke-linejoin="round"/></svg>',
-    delivered: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-7 w-7"><path d="M20 7 12 3 4 7v10l8 4 8-4V7Z" stroke-linejoin="round"/><path d="M4 7l8 4 8-4M12 11v10" stroke-linejoin="round"/></svg>',
-  };
-
   const STEPS: TourStep[] = [
-    { icon: ICONS.browse, title: "Explorá el catálogo", description: "Mirá tortas, cupcakes, galletas y más, sin necesidad de crear una cuenta todavía." },
-    { icon: ICONS.cart, title: "Armá tu pedido", description: "El carrito es un panel rápido que se abre al costado, no una página aparte — agregá todo lo que quieras desde ahí." },
-    { icon: ICONS.send, title: "Enviá tu solicitud", description: "Elegí la fecha que necesitás y mandala. No es una compra inmediata: es un pedido a medida." },
-    { icon: ICONS.review, title: "El repostero la revisa", description: "Puede tomarla tal cual la pediste, o proponerte un ajuste de precio o fecha que vos decidís si aceptar." },
-    { icon: ICONS.payment, title: "Elegís entrega y pagás", description: "Contraentrega (50% ahora + 50% al recibir) o tu propio delivery (100% por adelantado), con Mercado Pago." },
-    { icon: ICONS.tracking, title: "Seguí tu pedido", description: "Un seguimiento paso a paso te muestra en qué etapa está, desde que lo enviás hasta que lo recibís." },
-    { icon: ICONS.delivered, title: "¡Listo!", description: "Recibís tu pedido — y si elegiste contraentrega, pagás el saldo en ese momento." },
+    {
+      title: "Explorá el catálogo",
+      description: "Abrí este menú para ver las categorías con fotos y precios reales, sin necesidad de crear una cuenta todavía.",
+      target: "#nav-dropdown-toggle",
+    },
+    {
+      title: "Vista rápida, sin cambiar de pantalla",
+      description: 'Este botón abre foto, variantes y "Agregar a mi pedido" ahí mismo, sin salir de donde estás.',
+      target: ".quick-view-trigger",
+    },
+    {
+      title: "Tu pedido se arma acá",
+      description: "Cada cosa que agregás aparece en este panel — es un carrito rápido, no una página aparte.",
+      target: "#cart-toggle",
+    },
+    {
+      title: "Envías la solicitud",
+      description: "Elegís la fecha que necesitás y la mandás desde el carrito. No es una compra inmediata: es un pedido a medida.",
+    },
+    {
+      title: "El repostero la revisa",
+      description: "Puede tomarla tal cual la pediste, o proponerte un ajuste de precio o fecha que vos decidís si aceptar.",
+    },
+    {
+      title: "Elegís entrega y pagás",
+      description: "Contraentrega (50% ahora + 50% al recibir) o tu propio delivery (100% por adelantado), con Mercado Pago.",
+    },
+    {
+      title: "Seguís tu pedido acá",
+      description: '"Mis pedidos" te muestra en qué etapa está, paso a paso, hasta que lo recibís.',
+      target: "#orders-toggle",
+    },
+    {
+      title: "¡Listo!",
+      description: "Ya sabés cómo funciona. Explorá el catálogo cuando quieras — este tour vuelve a estar disponible desde el pie de página.",
+    },
   ];
 
   const SEEN_KEY = "arlet-tour-seen";
+  const SPOTLIGHT_COLOR = "46, 35, 32"; // --color-charcoal en rgb, para el rgba() del dim
+  const RING_COLOR = "#e4568a"; // --color-pink-strong
+  const PAD = 10;
+  const GAP = 14;
 
-  const overlay = document.getElementById("tour-overlay");
-  const panel = document.getElementById("tour-panel");
-  const iconEl = document.getElementById("tour-icon");
+  const root = document.getElementById("tour-root");
+  const spotlight = document.getElementById("tour-spotlight");
+  const card = document.getElementById("tour-card");
+  const stepLabelEl = document.getElementById("tour-step-label");
   const titleEl = document.getElementById("tour-title");
   const descEl = document.getElementById("tour-description");
   const dotsEl = document.getElementById("tour-dots");
@@ -102,40 +133,116 @@
   const closeBtn = document.getElementById("tour-close");
 
   let current = 0;
+  let isOpen = false;
+  let repositionTimer: number | undefined;
+
+  function findVisibleTarget(selector?: string): HTMLElement | null {
+    if (!selector) return null;
+    const el = document.querySelector<HTMLElement>(selector);
+    if (!el) return null;
+    const rect = el.getBoundingClientRect();
+    // Un ancestro con "hidden" (ej. el botón de "Mis pedidos" en mobile, o
+    // el dropdown de categorías fuera del breakpoint md) devuelve un rect
+    // en 0 — se trata igual que "no existe" y cae al modo centrado.
+    if (rect.width === 0 && rect.height === 0) return null;
+    return el;
+  }
+
+  function positionOnTarget(el: HTMLElement) {
+    if (!spotlight || !card) return;
+    const rect = el.getBoundingClientRect();
+
+    spotlight.style.top = `${rect.top - PAD}px`;
+    spotlight.style.left = `${rect.left - PAD}px`;
+    spotlight.style.width = `${rect.width + PAD * 2}px`;
+    spotlight.style.height = `${rect.height + PAD * 2}px`;
+    spotlight.style.boxShadow = `0 0 0 3px ${RING_COLOR}, 0 0 0 9999px rgba(${SPOTLIGHT_COLOR}, 0.55)`;
+    spotlight.style.background = "transparent";
+
+    // Se calcula debajo del target primero; si no entra, arriba. Se centra
+    // horizontalmente sobre el target, dentro de los márgenes del viewport.
+    const cardRect = card.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const placeAbove = spaceBelow < cardRect.height + GAP + 16 && rect.top > cardRect.height + GAP + 16;
+
+    const top = placeAbove ? rect.top - cardRect.height - GAP : rect.bottom + GAP;
+    const idealLeft = rect.left + rect.width / 2 - cardRect.width / 2;
+    const left = Math.min(Math.max(idealLeft, 16), window.innerWidth - cardRect.width - 16);
+
+    card.style.top = `${Math.min(Math.max(top, 16), window.innerHeight - cardRect.height - 16)}px`;
+    card.style.left = `${left}px`;
+    card.style.transform = "none";
+  }
+
+  function positionCentered() {
+    if (!spotlight || !card) return;
+    spotlight.style.top = "0";
+    spotlight.style.left = "0";
+    spotlight.style.width = "100vw";
+    spotlight.style.height = "100vh";
+    spotlight.style.boxShadow = "none";
+    spotlight.style.background = `rgba(${SPOTLIGHT_COLOR}, 0.55)`;
+
+    card.style.top = "50%";
+    card.style.left = "50%";
+    card.style.transform = "translate(-50%, -50%)";
+  }
+
+  function updatePosition() {
+    const step = STEPS[current];
+    const target = findVisibleTarget(step.target);
+    if (target) {
+      positionOnTarget(target);
+    } else {
+      positionCentered();
+    }
+  }
 
   function render() {
     const step = STEPS[current];
-    if (iconEl) iconEl.innerHTML = step.icon;
+    if (stepLabelEl) stepLabelEl.textContent = `Cómo funciona · ${current + 1} de ${STEPS.length}`;
     if (titleEl) titleEl.textContent = step.title;
     if (descEl) descEl.textContent = step.description;
     if (dotsEl) {
       dotsEl.innerHTML = STEPS.map(
-        (_, i) => `<span class="h-1.5 w-1.5 rounded-full ${i === current ? "bg-pink-strong" : "bg-charcoal/15"}"></span>`,
+        (_, i) => `<span class="h-1.5 flex-1 rounded-full ${i === current ? "bg-pink-strong" : "bg-charcoal/15"}"></span>`,
       ).join("");
     }
     prevBtn?.classList.toggle("invisible", current === 0);
-    if (nextBtn) nextBtn.textContent = current === STEPS.length - 1 ? "Empezar a explorar" : "Siguiente";
+    if (nextBtn) nextBtn.textContent = current === STEPS.length - 1 ? "Entendido" : "Siguiente";
+
+    const target = findVisibleTarget(step.target);
+    if (target) {
+      // Transición real: primero se hace scroll hacia el elemento, y recién
+      // cuando termina de moverse se reposiciona el spotlight/tarjeta sobre
+      // su ubicación final — así se ve como "bajar" hasta cada opción, no un
+      // salto instantáneo.
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.clearTimeout(repositionTimer);
+      repositionTimer = window.setTimeout(updatePosition, 380);
+    } else {
+      window.clearTimeout(repositionTimer);
+      updatePosition();
+    }
   }
 
   function openTour() {
-    if (!overlay || !panel) return;
+    if (!root) return;
+    isOpen = true;
     current = 0;
+    root.classList.remove("hidden");
     render();
-    overlay.classList.remove("invisible", "opacity-0");
-    overlay.classList.add("opacity-100");
-    panel.classList.remove("translate-y-2", "scale-95");
-    panel.classList.add("translate-y-0", "scale-100");
-    document.body.classList.add("overflow-hidden");
+    window.addEventListener("scroll", updatePosition, { passive: true });
+    window.addEventListener("resize", updatePosition);
   }
 
   function closeTour() {
-    if (!overlay || !panel) return;
-    overlay.classList.add("opacity-0");
-    overlay.classList.remove("opacity-100");
-    panel.classList.add("translate-y-2", "scale-95");
-    panel.classList.remove("translate-y-0", "scale-100");
-    document.body.classList.remove("overflow-hidden");
-    window.setTimeout(() => overlay.classList.add("invisible"), 200);
+    if (!root) return;
+    isOpen = false;
+    root.classList.add("hidden");
+    window.clearTimeout(repositionTimer);
+    window.removeEventListener("scroll", updatePosition);
+    window.removeEventListener("resize", updatePosition);
   }
 
   nextBtn?.addEventListener("click", () => {
@@ -153,11 +260,8 @@
   });
   skipBtn?.addEventListener("click", closeTour);
   closeBtn?.addEventListener("click", closeTour);
-  overlay?.addEventListener("click", (event) => {
-    if (event.target === overlay) closeTour();
-  });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeTour();
+    if (isOpen && event.key === "Escape") closeTour();
   });
   document.addEventListener("open-tour", openTour);
 

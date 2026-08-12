@@ -1,13 +1,53 @@
 ---
+interface Variant {
+  id: number;
+  name: string;
+  priceDeltaCents: number;
+}
+
 interface Props {
+  productId: number;
   name: string;
   priceLabel: string;
+  basePriceCents: number;
   image: string;
   href: string;
+  description?: string | null;
+  variants?: Variant[];
+  leadTimeDays?: number;
+  allowsUrgent?: boolean;
   hasVariants?: boolean;
 }
 
-const { name, priceLabel, image, href, hasVariants = false } = Astro.props;
+const {
+  productId,
+  name,
+  priceLabel,
+  basePriceCents,
+  image,
+  href,
+  description = null,
+  variants = [],
+  leadTimeDays = 2,
+  allowsUrgent = false,
+  hasVariants = variants.length > 0,
+} = Astro.props;
+
+// Todo lo que necesita el quick-view enriquecido viaja en un solo JSON en
+// vez de seguir sumando data-* sueltos — más simple de mantener a medida
+// que crece la info que puede mostrar el modal.
+const quickViewPayload = JSON.stringify({
+  productId,
+  name,
+  priceLabel,
+  basePriceCents,
+  image,
+  href,
+  description,
+  variants,
+  leadTimeDays,
+  allowsUrgent,
+});
 ---
 
 <a href={href} class="group block">
@@ -22,10 +62,7 @@ const { name, priceLabel, image, href, hasVariants = false } = Astro.props;
     <button
       type="button"
       class="quick-view-trigger absolute inset-x-3 bottom-3 translate-y-3 rounded-full bg-white/95 px-4 py-2.5 text-center font-body text-xs font-semibold text-charcoal opacity-0 shadow-md transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 hover:bg-pink-strong hover:text-white"
-      data-quickview-name={name}
-      data-quickview-price={priceLabel}
-      data-quickview-image={image}
-      data-quickview-href={href}
+      data-quickview-payload={quickViewPayload}
     >
       {hasVariants ? "Seleccionar opciones" : "Vista rápida"}
     </button>
@@ -42,16 +79,9 @@ const { name, priceLabel, image, href, hasVariants = false } = Astro.props;
     button.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      document.dispatchEvent(
-        new CustomEvent("open-quick-view", {
-          detail: {
-            name: button.dataset.quickviewName ?? "",
-            price: button.dataset.quickviewPrice ?? "",
-            image: button.dataset.quickviewImage ?? "",
-            href: button.dataset.quickviewHref ?? "#",
-          },
-        }),
-      );
+      if (!button.dataset.quickviewPayload) return;
+      const detail = JSON.parse(button.dataset.quickviewPayload);
+      document.dispatchEvent(new CustomEvent("open-quick-view", { detail }));
     });
   });
 </script>

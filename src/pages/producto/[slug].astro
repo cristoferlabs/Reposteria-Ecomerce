@@ -139,9 +139,7 @@ const reviewLoginUrl = "/cuenta/acceso?redirect=" + encodeURIComponent(`/product
         )
       }
 
-      {product.description && <p class="mt-6 leading-relaxed text-charcoal/70">{product.description}</p>}
-
-      <div class="mt-8 space-y-6 border-t border-charcoal/10 pt-8">
+      <div class="mt-8 space-y-6">
         {
           activeVariants.length > 0 && (
             <fieldset>
@@ -160,12 +158,6 @@ const reviewLoginUrl = "/cuenta/acceso?redirect=" + encodeURIComponent(`/product
           )
         }
 
-        <p class="text-sm text-charcoal/60">
-          {product.allowsUrgent
-            ? `Listo en ${product.leadTimeDays} día${product.leadTimeDays > 1 ? "s" : ""} · también disponible con entrega urgente`
-            : `Requiere ${product.leadTimeDays} días de anticipación`}
-        </p>
-
         <div>
           <button
             type="button"
@@ -176,6 +168,76 @@ const reviewLoginUrl = "/cuenta/acceso?redirect=" + encodeURIComponent(`/product
             Agregar a mi pedido
           </button>
           <p id="add-to-cart-error" class="mt-3 hidden text-sm text-red-600"></p>
+        </div>
+      </div>
+
+      <!-- Secciones colapsables: descripción abierta por defecto, detalles
+           de entrega cerrados — mismo patrón vanilla-JS de toggle de clases
+           que el resto del sitio (dropdown del navbar, etc.), no <details>
+           nativo, para que la animación se vea igual en todos lados. -->
+      <div class="mt-8 border-t border-charcoal/10">
+        {
+          product.description && (
+            <div class="border-b border-charcoal/10">
+              <button
+                type="button"
+                class="accordion-toggle flex w-full items-center justify-between py-4 text-left"
+                data-accordion="description"
+              >
+                <span class="font-body text-sm font-semibold text-charcoal">Descripción</span>
+                <svg
+                  class="accordion-chevron h-4 w-4 shrink-0 text-charcoal/50 transition-transform duration-200 rotate-180"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+              <div
+                id="accordion-panel-description"
+                class="accordion-panel grid grid-rows-[1fr] overflow-hidden transition-[grid-template-rows] duration-300"
+              >
+                <div class="min-h-0 overflow-hidden">
+                  <p class="pb-4 text-sm leading-relaxed text-charcoal/70">{product.description}</p>
+                </div>
+              </div>
+            </div>
+          )
+        }
+
+        <div class="border-b border-charcoal/10">
+          <button
+            type="button"
+            class="accordion-toggle flex w-full items-center justify-between py-4 text-left"
+            data-accordion="delivery"
+          >
+            <span class="font-body text-sm font-semibold text-charcoal">Detalles de entrega</span>
+            <svg
+              class="accordion-chevron h-4 w-4 shrink-0 text-charcoal/50 transition-transform duration-200"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <div
+            id="accordion-panel-delivery"
+            class="accordion-panel grid grid-rows-[0fr] overflow-hidden transition-[grid-template-rows] duration-300"
+          >
+            <div class="min-h-0 overflow-hidden">
+              <p class="pb-4 text-sm text-charcoal/60">
+                {product.allowsUrgent
+                  ? `Listo en ${product.leadTimeDays} día${product.leadTimeDays > 1 ? "s" : ""} · también disponible con entrega urgente`
+                  : `Requiere ${product.leadTimeDays} días de anticipación`}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -322,6 +384,20 @@ const reviewLoginUrl = "/cuenta/acceso?redirect=" + encodeURIComponent(`/product
       allThumbs.forEach((t) => t.classList.replace("border-pink-strong", "border-transparent"));
       thumb.classList.replace("border-transparent", "border-pink-strong");
       if (counter) counter.textContent = `${Number(thumb.dataset.index) + 1} / ${allThumbs.length}`;
+    });
+  });
+
+  document.querySelectorAll<HTMLButtonElement>(".accordion-toggle").forEach((toggle) => {
+    const key = toggle.dataset.accordion;
+    const panel = document.getElementById(`accordion-panel-${key}`);
+    const chevron = toggle.querySelector<SVGElement>(".accordion-chevron");
+    if (!panel) return;
+
+    toggle.addEventListener("click", () => {
+      const isOpen = panel.classList.contains("grid-rows-[1fr]");
+      panel.classList.toggle("grid-rows-[1fr]", !isOpen);
+      panel.classList.toggle("grid-rows-[0fr]", isOpen);
+      chevron?.classList.toggle("rotate-180", !isOpen);
     });
   });
 </script>

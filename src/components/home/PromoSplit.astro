@@ -1,0 +1,48 @@
+---
+// Banda de 2 bloques grandes lado a lado, cada uno una foto real de
+// producto destacado + texto superpuesto + CTA — mismo recurso visual que
+// Hero.astro (gradiente + texto blanco), pero dividido en 2 en vez de una
+// sola foto. No duplica lo que ya hace CategoryTiles (explorar por
+// categoría): acá se destacan productos puntuales, no categorías.
+interface PromoProduct {
+  name: string;
+  description: string | null;
+  image: string;
+  href: string;
+}
+
+interface Props {
+  products: PromoProduct[];
+}
+
+const { products } = Astro.props;
+---
+
+{
+  products.length > 0 && (
+    <section class="w-full px-4 py-8 sm:py-12" data-reveal>
+      <div class="mx-auto grid max-w-6xl grid-cols-1 gap-4 sm:grid-cols-2" data-reveal-group>
+        {products.slice(0, 2).map((product) => (
+          <a href={product.href} class="group relative block overflow-hidden rounded-2xl" data-reveal-item>
+            <img
+              src={product.image}
+              alt={product.name}
+              loading="lazy"
+              class="h-[420px] w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div class="absolute inset-0 bg-gradient-to-t from-charcoal/80 via-charcoal/10 to-transparent" />
+            <div class="absolute inset-x-0 bottom-0 p-6 sm:p-8">
+              <h3 class="font-display text-2xl font-semibold text-white">{product.name}</h3>
+              {product.description && (
+                <p class="mt-2 max-w-xs font-body text-sm text-white/80 line-clamp-2">{product.description}</p>
+              )}
+              <span class="mt-4 inline-block rounded-full bg-white px-6 py-2.5 font-body text-sm font-semibold text-charcoal transition-colors duration-200 group-hover:bg-pink-strong group-hover:text-white">
+                Ver producto
+              </span>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+  )
+}

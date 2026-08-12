@@ -1,0 +1,40 @@
+---
+// Motor de scroll-reveal para todo el sitio: cualquier sección con
+// data-reveal, o item con data-reveal-item dentro de un contenedor con
+// data-reveal-group (para el stagger), aparece con fade + slide sutil al
+// entrar en viewport. Se monta una sola vez en BaseLayout.
+---
+
+<script>
+  function initScrollReveal() {
+    const items = document.querySelectorAll<HTMLElement>("[data-reveal], [data-reveal-item]");
+    if (items.length === 0) return;
+
+    // Recién ahora, con JS listo, activamos el CSS que los oculta antes de
+    // animarlos — así si este script no corre (o tarda), el contenido
+    // arranca visible en vez de escondido para siempre.
+    document.documentElement.classList.add("js-reveal-ready");
+
+    document.querySelectorAll<HTMLElement>("[data-reveal-group]").forEach((group) => {
+      group.querySelectorAll<HTMLElement>("[data-reveal-item]").forEach((el, index) => {
+        el.style.transitionDelay = `${(index % 6) * 70}ms`;
+      });
+    });
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("is-revealed");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -80px 0px" },
+    );
+
+    items.forEach((el) => observer.observe(el));
+  }
+
+  initScrollReveal();
+</script>
