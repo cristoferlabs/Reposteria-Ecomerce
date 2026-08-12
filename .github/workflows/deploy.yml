@@ -100,9 +100,9 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           envs: DB_HOST,DB_PORT,DB_USER,DB_PASSWORD,DB_NAME,DEPLOY_PATH
           script: |
-            set -euo pipefail
+            set -e
 
-            APP_ROOT="${DEPLOY_PATH}"
+            APP_ROOT="${DEPLOY_PATH:-}"
             if [ -z "$APP_ROOT" ]; then
               echo "DEPLOY_PATH secret is empty" >&2
               exit 1
@@ -110,23 +110,34 @@ jobs:
             cd "$APP_ROOT"
             echo "In $APP_ROOT"
 
-            # Node de cPanel (Setup Node.js App). Sin esto, no hay node/npm en PATH.
-            ACTIVATE="$HOME/nodevenv/tienda.mikelvra.com/20/bin/activate"
-            if [ ! -f "$ACTIVATE" ]; then
-              echo "Missing activate script: $ACTIVATE" >&2
+            # Prefer Node 22 (Astro 7); fallback a 20 si aún no se actualizó en cPanel.
+            ACTIVATE=""
+            for ver in 22 20; do
+              candidate="$HOME/nodevenv/tienda.mikelvra.com/$ver/bin/activate"
+              if [ -f "$candidate" ]; then
+                ACTIVATE="$candidate"
+                break
+              fi
+            done
+            if [ -z "$ACTIVATE" ]; then
+              echo "Missing cPanel nodevenv activate for tienda.mikelvra.com" >&2
               exit 1
             fi
             # shellcheck disable=SC1090
             source "$ACTIVATE"
-            echo "Using $(node -v) / npm $(npm -v)"
+            echo "Using $(node -v) / npm $(npm -v) via $ACTIVATE"
 
-            # drizzle-kit lee process.env / .env (sin espacios de indentación)
+            if [ -z "${DB_HOST:-}" ] || [ -z "${DB_USER:-}" ] || [ -z "${DB_NAME:-}" ]; then
+              echo "DB_* secrets were not passed to the SSH step" >&2
+              exit 1
+            fi
+
             umask 077
             {
               printf 'DB_HOST=%s\n' "$DB_HOST"
-              printf 'DB_PORT=%s\n' "$DB_PORT"
+              printf 'DB_PORT=%s\n' "${DB_PORT:-3306}"
               printf 'DB_USER=%s\n' "$DB_USER"
-              printf 'DB_PASSWORD=%s\n' "$DB_PASSWORD"
+              printf 'DB_PASSWORD=%s\n' "${DB_PASSWORD:-}"
               printf 'DB_NAME=%s\n' "$DB_NAME"
             } > .env
 
