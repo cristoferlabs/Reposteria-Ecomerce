@@ -136,6 +136,13 @@ jobs:
             export DB_HOST DB_PORT DB_USER DB_PASSWORD DB_NAME
             DB_PORT="${DB_PORT:-3306}"
 
+            # CloudLinux exige node_modules como symlink del nodevenv.
+            # Si existe un directorio real (p. ej. de un npm ci a mano), SAVE falla.
+            if [ -e node_modules ] && [ ! -L node_modules ]; then
+              echo "Removing non-symlink node_modules for CloudLinux compatibility"
+              rm -rf node_modules
+            fi
+
             # Production en cPanel omite devDeps; hacen falta para migrate.
             npm ci --include=dev
             ./node_modules/.bin/drizzle-kit migrate
