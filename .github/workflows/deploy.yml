@@ -24,15 +24,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      # Claves leídas con import.meta.env → quedan embebidas en el build.
-      # DB_* usa process.env en runtime → se configuran en cPanel Node.js App.
-      - name: Build
+      # Escribe .env sin interpolar secretos en el shell (evita fallos con $,#,",etc.).
+      - name: Write build env file
         env:
           PUBLIC_SITE_URL: ${{ secrets.PUBLIC_SITE_URL }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
@@ -44,6 +43,31 @@ jobs:
           MP_ACCESS_TOKEN: ${{ secrets.MP_ACCESS_TOKEN }}
           MP_PUBLIC_KEY: ${{ secrets.MP_PUBLIC_KEY }}
           MP_WEBHOOK_SECRET: ${{ secrets.MP_WEBHOOK_SECRET }}
+        run: |
+          python3 <<'PY'
+          import os
+          keys = [
+            "PUBLIC_SITE_URL",
+            "SESSION_SECRET",
+            "ADMIN_EMAILS",
+            "WHATSAPP_BUSINESS_NUMBER",
+            "GOOGLE_CLIENT_ID",
+            "GOOGLE_CLIENT_SECRET",
+            "GOOGLE_REDIRECT_URI",
+            "MP_ACCESS_TOKEN",
+            "MP_PUBLIC_KEY",
+            "MP_WEBHOOK_SECRET",
+          ]
+          missing = [k for k in keys if not os.environ.get(k)]
+          if missing:
+            raise SystemExit(f"Missing secrets: {', '.join(missing)}")
+          with open(".env", "w", encoding="utf-8") as f:
+            for k in keys:
+              f.write(f"{k}={os.environ[k]}\n")
+          print("Wrote .env with", len(keys), "keys")
+          PY
+
+      - name: Build
         run: npm run build
 
       - name: Upload app to server
@@ -84,7 +108,6 @@ jobs:
               source "$NODE_ENV_SOURCE"
             fi
 
-            # Con deps de desarrollo solo para migrar; luego se dejan solo producción.
             npm ci
             npx drizzle-kit migrate
             npm prune --omit=dev
