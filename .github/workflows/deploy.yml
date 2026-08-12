@@ -1,0 +1,102 @@
+# Deploy a Namecheap cPanel (Setup Node.js App + Passenger).
+# Requisitos previos en cPanel: subdominio, MySQL, app Node creada, SSH activo.
+
+name: Deploy to cPanel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Claves leídas con import.meta.env → quedan embebidas en el build.
+      # DB_* usa process.env en runtime → se configuran en cPanel Node.js App.
+      - name: Build
+        env:
+          PUBLIC_SITE_URL: ${{ secrets.PUBLIC_SITE_URL }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
+          WHATSAPP_BUSINESS_NUMBER: ${{ secrets.WHATSAPP_BUSINESS_NUMBER }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REDIRECT_URI: ${{ secrets.GOOGLE_REDIRECT_URI }}
+          MP_ACCESS_TOKEN: ${{ secrets.MP_ACCESS_TOKEN }}
+          MP_PUBLIC_KEY: ${{ secrets.MP_PUBLIC_KEY }}
+          MP_WEBHOOK_SECRET: ${{ secrets.MP_WEBHOOK_SECRET }}
+        run: npm run build
+
+      - name: Upload app to server
+        uses: burnett01/rsync-deployments@7.0.2
+        with:
+          switches: >-
+            -az --delete
+            --exclude .git
+            --exclude .github
+            --exclude .env
+            --exclude .env.*
+            --exclude node_modules
+            --exclude .astro
+            --exclude assets-originals
+            --exclude '*.db'
+            --exclude '*.db-journal'
+          path: ./
+          remote_path: ${{ secrets.DEPLOY_PATH }}/
+          remote_host: ${{ secrets.SSH_HOST }}
+          remote_user: ${{ secrets.SSH_USER }}
+          remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          remote_port: ${{ secrets.SSH_PORT }}
+
+      - name: Install, migrate, restart
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          envs: DB_HOST,DB_PORT,DB_USER,DB_PASSWORD,DB_NAME,NODE_ENV_SOURCE,DEPLOY_PATH
+          script: |
+            set -e
+            cd "$DEPLOY_PATH"
+
+            if [ -n "$NODE_ENV_SOURCE" ] && [ -f "$NODE_ENV_SOURCE" ]; then
+              # shellcheck disable=SC1090
+              source "$NODE_ENV_SOURCE"
+            fi
+
+            # Con deps de desarrollo solo para migrar; luego se dejan solo producción.
+            npm ci
+            npx drizzle-kit migrate
+            npm prune --omit=dev
+
+            mkdir -p tmp
+            touch tmp/restart.txt
+            echo "Deploy OK: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          NODE_ENV_SOURCE: ${{ secrets.NODE_ENV_SOURCE }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
