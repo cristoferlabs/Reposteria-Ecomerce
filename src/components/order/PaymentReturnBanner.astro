@@ -1,0 +1,95 @@
+---
+// Los 3 back_urls de Mercado Pago (éxito/pendiente/fallo) apuntan todos a
+// esta misma página de estado — este banner es puramente transitorio: solo
+// se muestra si hay un query param de MP en la URL actual (usuario recién
+// regresando de pagar). La base de datos siempre manda sobre lo que diga el
+// query param: si el webhook ya confirmó el pago, no importa qué diga MP en
+// el redirect.
+
+interface Props {
+  mpParam: string | null;
+  orderStatus: string;
+}
+
+const { mpParam, orderStatus } = Astro.props;
+
+type BannerTone = "success" | "warning" | "danger";
+
+let tone: BannerTone | null = null;
+let message = "";
+let shouldPoll = false;
+
+if (mpParam) {
+  if (orderStatus === "pago_inicial_confirmado") {
+    tone = "success";
+    message = "¡Pago confirmado! Tu pedido ya está en cola de producción.";
+  } else if (orderStatus === "pago_inicial_pendiente") {
+    if (mpParam === "approved") {
+      tone = "warning";
+      message = "Estamos confirmando tu pago con Mercado Pago, puede tardar unos segundos...";
+      shouldPoll = true;
+    } else if (mpParam === "pending" || mpParam === "in_process") {
+      tone = "warning";
+      message = "Tu pago está pendiente de confirmación por Mercado Pago.";
+    } else {
+      tone = "danger";
+      message = "El pago no se completó. Puedes intentarlo de nuevo abajo.";
+    }
+  }
+}
+
+const TONE_CLASSES: Record<BannerTone, string> = {
+  success: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  warning: "border-amber-200 bg-amber-50 text-amber-800",
+  danger: "border-red-200 bg-red-50 text-red-700",
+};
+---
+
+{
+  tone && (
+    <div
+      data-payment-return-banner
+      data-should-poll={shouldPoll ? "true" : "false"}
+      class={`mb-6 flex items-center gap-3 rounded-lg border px-4 py-3 text-sm ${TONE_CLASSES[tone]}`}
+    >
+      <span>{message}</span>
+      {shouldPoll && <span class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-500" aria-hidden="true" />}
+    </div>
+  )
+}
+
+<script>
+  import { fetchJson } from "../../lib/http/fetchJson";
+
+  // Limpiar los query params de MP para que un refresh no repita el mensaje.
+  const url = new URL(window.location.href);
+  const mpKeys = ["status", "collection_status", "payment_id", "preference_id", "merchant_order_id", "external_reference"];
+  if (mpKeys.some((key) => url.searchParams.has(key))) {
+    mpKeys.forEach((key) => url.searchParams.delete(key));
+    history.replaceState({}, "", url.pathname + url.search);
+  }
+
+  const banner = document.querySelector<HTMLElement>("[data-payment-return-banner]");
+  if (banner?.dataset.shouldPoll === "true") {
+    const publicId = window.location.pathname.split("/").pop();
+    let attempts = 0;
+    const maxAttempts = 7; // ~21s a 3s cada uno
+
+    const interval = setInterval(async () => {
+      attempts++;
+      if (attempts > maxAttempts) {
+        clearInterval(interval);
+        return;
+      }
+      try {
+        const { order } = await fetchJson<{ order: { status: string } }>(`/api/pedidos/${publicId}`);
+        if (order.status !== "pago_inicial_pendiente") {
+          clearInterval(interval);
+          window.location.reload();
+        }
+      } catch {
+        clearInterval(interval);
+      }
+    }, 3000);
+  }
+</script>

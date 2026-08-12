@@ -1,0 +1,174 @@
+---
+import type { DeliveryMethod, OrderStatus } from "../../db/schema";
+import { formatSoles } from "../../lib/orders/pricing";
+
+interface Props {
+  subtotalCents: number;
+  urgencySurchargeCents: number;
+  deliveryCostCents: number;
+  deliveryMethod: DeliveryMethod | null;
+  totalCents: number;
+  initialPaymentCents: number;
+  finalPaymentCents: number;
+  finalPaymentCollected: boolean;
+  showPayButton?: boolean;
+  publicId?: string;
+  /** Para derivar si el pago inicial ya está confirmado — opcional para no
+   * romper si algún caller no lo pasa (cae a finalPaymentCollected). */
+  status?: OrderStatus;
+}
+
+const {
+  subtotalCents,
+  urgencySurchargeCents,
+  deliveryCostCents,
+  deliveryMethod,
+  totalCents,
+  initialPaymentCents,
+  finalPaymentCents,
+  finalPaymentCollected,
+  showPayButton = false,
+  publicId,
+  status,
+} = Astro.props;
+
+const initialLabel = deliveryMethod === "delivery_propio" ? "Pago (100%)" : "Pago inicial (50%)";
+
+// Duplicado a propósito de la noción de "camino feliz" que ya vive en
+// lib/orders/orderStatusMeta.ts — este componente no puede importar de
+// src/lib/** en este proyecto, así que se resuelve acá mismo.
+const INITIAL_PAID_STATUSES: OrderStatus[] = [
+  "pago_inicial_confirmado",
+  "en_preparacion",
+  "listo",
+  "entregado",
+];
+const initialPaid = status ? INITIAL_PAID_STATUSES.includes(status) : finalPaymentCollected;
+const isSplitPayment = deliveryMethod === "contraentrega" && finalPaymentCents > 0;
+const fullyPaid = isSplitPayment ? finalPaymentCollected : initialPaid;
+
+const heroLabel = !initialPaid ? initialLabel : "Saldo contraentrega";
+const heroAmountCents = !initialPaid ? initialPaymentCents : finalPaymentCents;
+---
+
+<dl class="space-y-2 text-sm">
+  <div class="flex justify-between">
+    <dt class="text-charcoal/60">Subtotal</dt>
+    <dd class="text-charcoal">{formatSoles(subtotalCents)}</dd>
+  </div>
+  {
+    urgencySurchargeCents > 0 && (
+      <div class="flex justify-between">
+        <dt class="text-charcoal/60">Recargo por urgencia</dt>
+        <dd class="text-charcoal">{formatSoles(urgencySurchargeCents)}</dd>
+      </div>
+    )
+  }
+  {
+    deliveryCostCents > 0 && (
+      <div class="flex justify-between">
+        <dt class="text-charcoal/60">Costo de entrega</dt>
+        <dd class="text-charcoal">{formatSoles(deliveryCostCents)}</dd>
+      </div>
+    )
+  }
+  <div class="flex justify-between border-t border-charcoal/10 pt-2 font-semibold">
+    <dt class="text-charcoal">Total</dt>
+    <dd class="text-charcoal">{formatSoles(totalCents)}</dd>
+  </div>
+</dl>
+
+{
+  fullyPaid ? (
+    <div class="mt-4 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+      <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="h-4 w-4">
+          <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </span>
+      <div>
+        <p class="font-body text-sm font-semibold text-emerald-800">Pagado en su totalidad</p>
+        <p class="text-xs text-emerald-700">{formatSoles(totalCents)}</p>
+      </div>
+    </div>
+  ) : (
+    heroAmountCents > 0 && (
+      <div class="mt-4 rounded-xl border border-pink-strong/20 bg-pink-soft/20 p-4">
+        <p class="font-body text-xs font-semibold tracking-wide text-pink-strong uppercase">{heroLabel}</p>
+        <p class="mt-1 font-display text-3xl font-bold text-pink-strong">{formatSoles(heroAmountCents)}</p>
+      </div>
+    )
+  )
+}
+
+{
+  isSplitPayment && (
+    <div class="mt-4">
+      <div class="mb-1 flex justify-between text-xs text-charcoal/50">
+        <span>Pago inicial{initialPaid && " · pagado"}</span>
+        <span>Saldo{finalPaymentCollected && " · cobrado"}</span>
+      </div>
+      <div class="flex h-2 gap-0.5 overflow-hidden rounded-full bg-charcoal/10">
+        <div class:list={["h-full flex-1 rounded-full", initialPaid ? "bg-pink-strong" : "bg-charcoal/15"]} />
+        <div class:list={["h-full flex-1 rounded-full", finalPaymentCollected ? "bg-pink-strong" : "bg-charcoal/15"]} />
+      </div>
+    </div>
+  )
+}
+
+{
+  showPayButton && publicId && (
+    <div class="mt-4">
+      <button
+        type="button"
+        data-pay-button
+        data-public-id={publicId}
+        class="flex w-full items-center justify-center gap-2 rounded-full bg-pink-strong px-8 py-3 font-body text-sm font-semibold text-white transition-colors hover:bg-charcoal"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4">
+          <rect x="2" y="5" width="20" height="14" rx="2" />
+          <path d="M2 10h20" stroke-linecap="round" />
+        </svg>
+        Pagar con Mercado Pago
+      </button>
+      <p data-pay-error class="mt-2 hidden text-sm text-red-600" />
+    </div>
+  )
+}
+
+{
+  /* El <script> de Astro se procesa/incluye una sola vez por componente al
+     compilar, independientemente de este condicional en runtime — por eso
+     el guard real está adentro (querySelector puede no encontrar nada). */
+}
+<script>
+  import { fetchJson } from "../../lib/http/fetchJson";
+
+  const button = document.querySelector<HTMLButtonElement>("[data-pay-button]");
+  const errorEl = document.querySelector<HTMLElement>("[data-pay-error]");
+
+  button?.addEventListener("click", async () => {
+    errorEl?.classList.add("hidden");
+    button.disabled = true;
+    button.textContent = "Redirigiendo a Mercado Pago...";
+
+    try {
+      const { initPoint } = await fetchJson<{ initPoint: string; preferenceId: string }>(
+        "/api/pagos/crear-preferencia",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ publicId: button.dataset.publicId }),
+        },
+      );
+      window.location.href = initPoint;
+    } catch (err) {
+      if (errorEl) {
+        errorEl.textContent = err instanceof Error ? err.message : "No se pudo iniciar el pago. Intenta de nuevo.";
+        errorEl.classList.remove("hidden");
+      }
+      button.disabled = false;
+      button.textContent = "Pagar con Mercado Pago";
+    }
+  });
+</script>

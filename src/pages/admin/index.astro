@@ -1,0 +1,13 @@
+---
+import { getSessionUser, isAdminEmail } from "../../lib/auth";
+
+const session = getSessionUser(Astro.request);
+if (!session) {
+  return Astro.redirect("/cuenta/acceso?redirect=" + encodeURIComponent("/admin/solicitudes"));
+}
+if (!isAdminEmail(session.email)) {
+  return Astro.rewrite("/404");
+}
+
+return Astro.redirect("/admin/solicitudes");
+---

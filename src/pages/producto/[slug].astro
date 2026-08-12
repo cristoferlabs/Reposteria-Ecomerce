@@ -1,0 +1,426 @@
+---
+import { eq } from "drizzle-orm";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { db } from "../../db/client";
+import { products } from "../../db/schema";
+import { getSessionUser } from "../../lib/auth";
+import { fetchJson, internalApiUrl } from "../../lib/http/fetchJson";
+import { formatSoles } from "../../lib/orders/pricing";
+import { siteConfig } from "../../config/site";
+import StarRating from "../../components/shared/StarRating.astro";
+
+const { slug } = Astro.params;
+
+const product = await db.query.products.findFirst({
+  where: eq(products.slug, slug!),
+  with: { category: true, variants: true },
+});
+
+if (!product || !product.active) {
+  return Astro.rewrite("/404");
+}
+
+const activeVariants = product.variants.filter((v) => v.active).sort((a, b) => a.sortOrder - b.sortOrder);
+
+// El schema todavía tiene una sola imagen por producto (product.imageUrl) —
+// no hay tabla product_images. Este array queda listo para crecer el día
+// que exista esa pieza (pedirla a la sesión de backend); por ahora es un
+// arreglo de un solo elemento, sin inventar fotos que no existen.
+const images = [product.imageUrl];
+
+const session = getSessionUser(Astro.request);
+
+interface ProductReview {
+  id: number;
+  customerName: string;
+  rating: number;
+  comment: string | null;
+  verified: boolean;
+  createdAt: string;
+}
+
+// GET /api/productos/[slug]/resenas todavía no existe del lado del backend
+// (pedido pendiente) — degrada a lista vacía en vez de romper la página
+// mientras esa pieza no esté lista.
+let productReviews: ProductReview[] = [];
+try {
+  const data = await fetchJson<{ reviews: ProductReview[] }>(internalApiUrl(`/api/productos/${slug}/resenas`));
+  productReviews = data.reviews;
+} catch {
+  productReviews = [];
+}
+
+const averageRating = productReviews.length
+  ? productReviews.reduce((sum, r) => sum + r.rating, 0) / productReviews.length
+  : 0;
+
+// Distribución 5★→1★ para la barra de resumen — cuenta + % del total.
+const ratingDistribution = [5, 4, 3, 2, 1].map((stars) => {
+  const count = productReviews.filter((r) => r.rating === stars).length;
+  const pct = productReviews.length ? Math.round((count / productReviews.length) * 100) : 0;
+  return { stars, count, pct };
+});
+
+function formatRelativeDate(iso: string): string {
+  const date = new Date(iso);
+  const days = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+  if (days < 1) return "Hoy";
+  if (days === 1) return "Ayer";
+  if (days < 7) return `Hace ${days} días`;
+  if (days < 30) return `Hace ${Math.floor(days / 7)} semana${Math.floor(days / 7) === 1 ? "" : "s"}`;
+  return date.toLocaleDateString("es-PE", { dateStyle: "medium" });
+}
+
+const reviewLoginUrl = "/cuenta/acceso?redirect=" + encodeURIComponent(`/producto/${slug}`);
+---
+
+<BaseLayout
+  title={`${product.name} — ${siteConfig.name}`}
+  description={product.description || `${product.name}, hecho a pedido.`}
+>
+  <nav class="mx-auto max-w-6xl px-4 pt-8 text-sm text-charcoal/60 md:px-6">
+    <a href="/" class="hover:text-pink-strong">Inicio</a>
+    <span class="mx-2">/</span>
+    <a href={`/catalogo/${product.category.slug}`} class="hover:text-pink-strong">{product.category.name}</a>
+    <span class="mx-2">/</span>
+    <span class="text-charcoal">{product.name}</span>
+  </nav>
+
+  <div class="mx-auto grid max-w-6xl grid-cols-1 gap-10 px-4 py-10 md:grid-cols-2 md:gap-12 md:px-6 md:py-16">
+    <div>
+      <div class="relative aspect-[4/5] w-full overflow-hidden rounded-lg bg-neutral-100">
+        <img
+          id="gallery-main"
+          src={images[0]}
+          alt={product.name}
+          loading="eager"
+          decoding="async"
+          class="h-full w-full object-cover"
+        />
+        <span
+          id="gallery-counter"
+          class="absolute right-3 bottom-3 rounded-full bg-charcoal/70 px-2.5 py-1 font-body text-xs font-medium text-white"
+        >
+          1 / {images.length}
+        </span>
+      </div>
+      <div class="mt-3 flex gap-2">
+        {
+          images.map((image, i) => (
+            <button
+              type="button"
+              class:list={[
+                "gallery-thumb h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 transition-colors",
+                i === 0 ? "border-pink-strong" : "border-transparent",
+              ]}
+              data-index={i}
+              data-src={image}
+              aria-label={`Ver foto ${i + 1} de ${product.name}`}
+            >
+              <img src={image} alt="" class="h-full w-full object-cover" />
+            </button>
+          ))
+        }
+      </div>
+    </div>
+
+    <div>
+      <h1 class="font-display text-3xl font-semibold text-charcoal sm:text-4xl">{product.name}</h1>
+      <p class="mt-3 font-body text-2xl font-semibold text-pink-strong">
+        {formatSoles(product.basePriceCents)}
+      </p>
+
+      {
+        productReviews.length > 0 && (
+          <a href="#resenas" class="mt-2 flex items-center gap-1.5 text-sm text-charcoal/70 hover:text-pink-strong">
+            <StarRating rating={averageRating} size="sm" />
+            {averageRating.toFixed(1)} · {productReviews.length} reseña{productReviews.length === 1 ? "" : "s"}
+          </a>
+        )
+      }
+
+      {product.description && <p class="mt-6 leading-relaxed text-charcoal/70">{product.description}</p>}
+
+      <div class="mt-8 space-y-6 border-t border-charcoal/10 pt-8">
+        {
+          activeVariants.length > 0 && (
+            <fieldset>
+              <legend class="font-body text-sm font-semibold uppercase tracking-wide text-charcoal/80">
+                Presentación
+              </legend>
+              <div class="mt-3 flex flex-wrap gap-2">
+                {activeVariants.map((variant, i) => (
+                  <label class="cursor-pointer rounded-full border border-charcoal/20 px-4 py-2 text-sm text-charcoal has-[:checked]:border-pink-strong has-[:checked]:bg-pink-strong has-[:checked]:text-white">
+                    <input type="radio" name="variant" value={variant.id} checked={i === 0} class="sr-only" />
+                    {variant.name} · {formatSoles(product.basePriceCents + variant.priceDeltaCents)}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )
+        }
+
+        <p class="text-sm text-charcoal/60">
+          {product.allowsUrgent
+            ? `Listo en ${product.leadTimeDays} día${product.leadTimeDays > 1 ? "s" : ""} · también disponible con entrega urgente`
+            : `Requiere ${product.leadTimeDays} días de anticipación`}
+        </p>
+
+        <div>
+          <button
+            type="button"
+            id="add-to-cart"
+            data-product-id={product.id}
+            class="inline-block w-full rounded-full bg-pink-strong px-8 py-3 text-center font-body text-sm font-semibold text-white transition-colors hover:bg-charcoal sm:w-auto"
+          >
+            Agregar a mi pedido
+          </button>
+          <p id="add-to-cart-error" class="mt-3 hidden text-sm text-red-600"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reseñas: por producto, con moderación (approved=false por defecto en
+       el backend hasta que un admin las revise) — GET/POST a
+       /api/productos/[slug]/resenas, endpoint pendiente del lado backend. -->
+  <div id="resenas" class="mx-auto max-w-6xl border-t border-charcoal/10 px-4 py-10 md:px-6 md:py-16">
+    <h2 class="font-display text-2xl font-semibold text-charcoal">Reseñas</h2>
+
+    {
+      productReviews.length > 0 && (
+        <div class="mt-6 grid grid-cols-1 gap-6 rounded-xl border border-charcoal/10 bg-neutral-50 p-6 sm:grid-cols-[auto_1fr] sm:items-center">
+          <div class="text-center sm:border-r sm:border-charcoal/10 sm:pr-8">
+            <p class="font-display text-5xl font-bold text-charcoal">{averageRating.toFixed(1)}</p>
+            <div class="mt-1 flex justify-center">
+              <StarRating rating={averageRating} size="md" />
+            </div>
+            <p class="mt-1 text-xs text-charcoal/60">
+              {productReviews.length} reseña{productReviews.length === 1 ? "" : "s"}
+            </p>
+          </div>
+          <div class="space-y-1.5">
+            {ratingDistribution.map(({ stars, pct }) => (
+              <div class="flex items-center gap-2 text-xs text-charcoal/60">
+                <span class="w-8 shrink-0">{stars}★</span>
+                <div class="h-2 flex-1 overflow-hidden rounded-full bg-charcoal/10">
+                  <div class="h-full rounded-full bg-gold" style={`width:${pct}%`} />
+                </div>
+                <span class="w-9 shrink-0 text-right">{pct}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    <div class="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[1fr_360px]">
+      <div>
+        {
+          productReviews.length === 0 ? (
+            <div class="rounded-xl border border-dashed border-charcoal/20 p-8 text-center">
+              <div class="flex justify-center">
+                <StarRating rating={0} size="lg" />
+              </div>
+              <p class="mt-3 text-sm text-charcoal/60">Todavía no hay reseñas para este producto.</p>
+              <p class="mt-1 text-xs text-charcoal/40">Sé el primero en compartir tu experiencia →</p>
+            </div>
+          ) : (
+            <ul class="grid grid-cols-1 gap-5 md:grid-cols-2">
+              {productReviews.map((review) => (
+                <li
+                  class:list={[
+                    "rounded-2xl border bg-white p-5 shadow-sm transition-shadow hover:shadow-md",
+                    review.verified ? "border-pink-strong/20" : "border-charcoal/10",
+                  ]}
+                >
+                  <div class="flex items-start gap-3">
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pink-soft/50 font-display text-sm font-semibold text-pink-strong">
+                      {review.customerName.trim().charAt(0).toUpperCase()}
+                    </span>
+                    <div class="min-w-0 flex-1">
+                      <p class="flex flex-wrap items-center gap-1.5 font-body text-sm font-semibold text-charcoal">
+                        {review.customerName}
+                        {review.verified && (
+                          <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="h-2.5 w-2.5">
+                              <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            Compra verificada
+                          </span>
+                        )}
+                      </p>
+                      <p class="text-xs text-charcoal/50">{formatRelativeDate(review.createdAt)}</p>
+                    </div>
+                  </div>
+                  <div class="mt-3">
+                    <StarRating rating={review.rating} size="sm" />
+                  </div>
+                  {review.comment && <p class="mt-2 text-sm leading-relaxed text-charcoal/80">"{review.comment}"</p>}
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </div>
+
+      <div class="rounded-lg border border-charcoal/10 bg-neutral-50 p-5">
+        <p class="font-body text-sm font-semibold text-charcoal">Escribe una reseña</p>
+        {
+          session ? (
+            <div class="mt-4">
+              <div id="review-stars" class="flex gap-1">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <button
+                    type="button"
+                    data-star={i + 1}
+                    aria-label={`${i + 1} estrella${i === 0 ? "" : "s"}`}
+                    class="review-star h-7 w-7 text-charcoal/20 transition-colors hover:text-gold"
+                  >
+                    <svg viewBox="0 0 20 20" fill="currentColor" class="h-full w-full">
+                      <path d="M10 1.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9L10 1.5z" />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+              <textarea
+                id="review-comment"
+                rows="3"
+                maxlength="1000"
+                placeholder="Cuéntanos qué te pareció (opcional)"
+                class="mt-3 w-full rounded-md border border-charcoal/20 px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                id="submit-review"
+                class="mt-3 w-full rounded-full bg-pink-strong px-6 py-2.5 font-body text-sm font-semibold text-white transition-colors hover:bg-charcoal"
+              >
+                Enviar reseña
+              </button>
+              <p id="review-message" class="mt-2 hidden text-sm" />
+            </div>
+          ) : (
+            <a href={reviewLoginUrl} class="mt-4 block text-sm font-medium text-pink-strong hover:text-charcoal">
+              Inicia sesión para dejar tu reseña
+            </a>
+          )
+        }
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>(".gallery-thumb").forEach((thumb) => {
+    thumb.addEventListener("click", () => {
+      const mainImage = document.getElementById("gallery-main") as HTMLImageElement | null;
+      const counter = document.getElementById("gallery-counter");
+      const allThumbs = document.querySelectorAll<HTMLButtonElement>(".gallery-thumb");
+      if (!mainImage) return;
+
+      mainImage.src = thumb.dataset.src ?? mainImage.src;
+      allThumbs.forEach((t) => t.classList.replace("border-pink-strong", "border-transparent"));
+      thumb.classList.replace("border-transparent", "border-pink-strong");
+      if (counter) counter.textContent = `${Number(thumb.dataset.index) + 1} / ${allThumbs.length}`;
+    });
+  });
+</script>
+
+<script>
+  import { readCartFromDocument, writeCartToDocument } from "../../lib/cart/cookieCart";
+
+  const button = document.getElementById("add-to-cart") as HTMLButtonElement | null;
+  const errorEl = document.getElementById("add-to-cart-error");
+
+  button?.addEventListener("click", () => {
+    const productId = Number(button.dataset.productId);
+    if (!productId) {
+      if (errorEl) {
+        errorEl.textContent = "No se pudo identificar el producto.";
+        errorEl.classList.remove("hidden");
+      }
+      return;
+    }
+
+    const variantInput = document.querySelector<HTMLInputElement>('input[name="variant"]:checked');
+    const variantId = variantInput ? Number(variantInput.value) : null;
+
+    const items = readCartFromDocument();
+    const existing = items.find((item) => item.productId === productId && item.variantId === variantId);
+    if (existing) {
+      existing.quantity += 1;
+    } else {
+      items.push({ productId, variantId, quantity: 1, customizationNotes: null });
+    }
+    writeCartToDocument(items);
+
+    // Recarga la misma página (en vez de saltar a /pedido/personalizar) para
+    // que BaseLayout resuelva el carrito actualizado server-side; el flag de
+    // sessionStorage le dice al CartDrawer que se reabra solo tras el reload.
+    sessionStorage.setItem("cart-drawer-open", "1");
+    window.location.reload();
+  });
+</script>
+
+<script>
+  import { fetchJson } from "../../lib/http/fetchJson";
+
+  const stars = document.querySelectorAll<HTMLButtonElement>(".review-star");
+  const commentInput = document.getElementById("review-comment") as HTMLTextAreaElement | null;
+  const submitBtn = document.getElementById("submit-review") as HTMLButtonElement | null;
+  const messageEl = document.getElementById("review-message");
+
+  let selectedRating = 0;
+
+  function paintStars(rating: number) {
+    stars.forEach((star) => {
+      const value = Number(star.dataset.star);
+      star.classList.toggle("text-gold", value <= rating);
+      star.classList.toggle("text-charcoal/20", value > rating);
+    });
+  }
+
+  stars.forEach((star) => {
+    star.addEventListener("click", () => {
+      selectedRating = Number(star.dataset.star);
+      paintStars(selectedRating);
+    });
+  });
+
+  function showReviewMessage(text: string, tone: "error" | "success") {
+    if (!messageEl) return;
+    messageEl.textContent = text;
+    messageEl.className = `mt-2 text-sm ${tone === "error" ? "text-red-600" : "text-emerald-700"}`;
+  }
+
+  submitBtn?.addEventListener("click", async () => {
+    if (selectedRating < 1) {
+      showReviewMessage("Elige una calificación con las estrellas.", "error");
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Enviando...";
+
+    try {
+      const slug = window.location.pathname.split("/").filter(Boolean).pop();
+      await fetchJson(`/api/productos/${slug}/resenas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rating: selectedRating,
+          ...(commentInput?.value ? { comment: commentInput.value } : {}),
+        }),
+      });
+      showReviewMessage("¡Gracias! Tu reseña quedará publicada luego de ser revisada.", "success");
+      selectedRating = 0;
+      paintStars(0);
+      if (commentInput) commentInput.value = "";
+    } catch (err) {
+      showReviewMessage(err instanceof Error ? err.message : "No se pudo enviar tu reseña.", "error");
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Enviar reseña";
+    }
+  });
+</script>

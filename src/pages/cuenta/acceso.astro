@@ -1,0 +1,175 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getSessionUser } from "../../lib/auth";
+import { siteConfig } from "../../config/site";
+
+// Mismo criterio que /api/auth/google/login: solo rutas relativas propias
+// del sitio como destino, para evitar que ?redirect= se use como open redirect.
+function sanitizeRedirect(target: string | null): string {
+  if (!target || !target.startsWith("/") || target.startsWith("//")) return "/";
+  return target;
+}
+
+const redirectTarget = sanitizeRedirect(Astro.url.searchParams.get("redirect"));
+
+const session = getSessionUser(Astro.request);
+if (session) {
+  return Astro.redirect(redirectTarget);
+}
+
+const googleLoginUrl = "/api/auth/google/login?redirect=" + encodeURIComponent(redirectTarget);
+---
+
+<BaseLayout title={`Iniciar sesión — ${siteConfig.name}`} description="Inicia sesión o crea una cuenta para continuar.">
+  <div data-page-redirect={redirectTarget} class="mx-auto max-w-md px-4 py-16 md:py-24">
+    <h1 class="text-center font-display text-3xl font-semibold text-charcoal">Bienvenido</h1>
+    <p class="mt-2 text-center font-body text-sm text-charcoal/60">
+      Inicia sesión o crea una cuenta para continuar con tu pedido.
+    </p>
+
+    <div class="mt-8 flex rounded-full bg-neutral-100 p-1">
+      <button
+        type="button"
+        id="tab-login"
+        class="flex-1 rounded-full bg-white px-4 py-2 font-body text-sm font-semibold text-charcoal shadow-sm transition-colors"
+      >
+        Iniciar sesión
+      </button>
+      <button
+        type="button"
+        id="tab-register"
+        class="flex-1 rounded-full px-4 py-2 font-body text-sm font-semibold text-charcoal/60 transition-colors"
+      >
+        Crear cuenta
+      </button>
+    </div>
+
+    <form id="login-form" class="mt-6 space-y-4">
+      <label class="block">
+        <span class="block font-body text-sm font-medium text-charcoal">Email</span>
+        <input type="email" name="email" required class="mt-1 w-full rounded-md border border-charcoal/20 px-3 py-2 text-sm" />
+      </label>
+      <label class="block">
+        <span class="block font-body text-sm font-medium text-charcoal">Contraseña</span>
+        <input type="password" name="password" required minlength="8" class="mt-1 w-full rounded-md border border-charcoal/20 px-3 py-2 text-sm" />
+      </label>
+      <p id="login-error" class="hidden text-sm text-red-600" />
+      <button
+        type="submit"
+        class="w-full rounded-full bg-pink-strong px-4 py-2.5 font-body text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-charcoal hover:shadow-md"
+      >
+        Iniciar sesión
+      </button>
+    </form>
+
+    <form id="register-form" class="mt-6 hidden space-y-4">
+      <label class="block">
+        <span class="block font-body text-sm font-medium text-charcoal">Nombre</span>
+        <input type="text" name="name" required class="mt-1 w-full rounded-md border border-charcoal/20 px-3 py-2 text-sm" />
+      </label>
+      <label class="block">
+        <span class="block font-body text-sm font-medium text-charcoal">Email</span>
+        <input type="email" name="email" required class="mt-1 w-full rounded-md border border-charcoal/20 px-3 py-2 text-sm" />
+      </label>
+      <label class="block">
+        <span class="block font-body text-sm font-medium text-charcoal">Contraseña</span>
+        <input type="password" name="password" required minlength="8" class="mt-1 w-full rounded-md border border-charcoal/20 px-3 py-2 text-sm" />
+        <span class="mt-1 block font-body text-xs text-charcoal/50">Mínimo 8 caracteres.</span>
+      </label>
+      <p id="register-error" class="hidden text-sm text-red-600" />
+      <button
+        type="submit"
+        class="w-full rounded-full bg-pink-strong px-4 py-2.5 font-body text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-charcoal hover:shadow-md"
+      >
+        Crear cuenta
+      </button>
+    </form>
+
+    <div class="mt-8 flex items-center gap-3">
+      <div class="h-px flex-1 bg-charcoal/10" />
+      <span class="font-body text-xs text-charcoal/40">o continúa con</span>
+      <div class="h-px flex-1 bg-charcoal/10" />
+    </div>
+
+    <a
+      href={googleLoginUrl}
+      class="mt-4 flex items-center justify-center gap-2 rounded-full border border-charcoal/20 px-4 py-2.5 font-body text-sm font-semibold text-charcoal transition-colors hover:bg-charcoal/5"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="h-4 w-4">
+        <path
+          fill="#4285F4"
+          d="M23.5 12.27c0-.79-.07-1.54-.2-2.27H12v4.3h6.47a5.54 5.54 0 0 1-2.4 3.63v3h3.87c2.27-2.09 3.56-5.17 3.56-8.66Z"
+        />
+        <path
+          fill="#34A853"
+          d="M12 24c3.24 0 5.95-1.07 7.94-2.9l-3.87-3c-1.08.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.96H1.28v3.09A12 12 0 0 0 12 24Z"
+        />
+        <path fill="#FBBC05" d="M5.27 14.29a7.2 7.2 0 0 1 0-4.58V6.62H1.28a12 12 0 0 0 0 10.76l3.99-3.09Z" />
+        <path
+          fill="#EA4335"
+          d="M12 4.75c1.76 0 3.34.61 4.59 1.8l3.44-3.44C17.94 1.19 15.24 0 12 0A12 12 0 0 0 1.28 6.62l3.99 3.09C6.22 6.86 8.87 4.75 12 4.75Z"
+        />
+      </svg>
+      Continuar con Google
+    </a>
+  </div>
+</BaseLayout>
+
+<script>
+  import { fetchJson } from "../../lib/http/fetchJson";
+
+  const tabLogin = document.getElementById("tab-login");
+  const tabRegister = document.getElementById("tab-register");
+  const loginForm = document.getElementById("login-form") as HTMLFormElement | null;
+  const registerForm = document.getElementById("register-form") as HTMLFormElement | null;
+  const redirectTarget = document.querySelector<HTMLElement>("[data-page-redirect]")?.dataset.pageRedirect || "/";
+
+  function activateTab(tab: "login" | "register") {
+    const isLogin = tab === "login";
+    loginForm?.classList.toggle("hidden", !isLogin);
+    registerForm?.classList.toggle("hidden", isLogin);
+
+    tabLogin?.classList.toggle("bg-white", isLogin);
+    tabLogin?.classList.toggle("shadow-sm", isLogin);
+    tabLogin?.classList.toggle("text-charcoal", isLogin);
+    tabLogin?.classList.toggle("text-charcoal/60", !isLogin);
+
+    tabRegister?.classList.toggle("bg-white", !isLogin);
+    tabRegister?.classList.toggle("shadow-sm", !isLogin);
+    tabRegister?.classList.toggle("text-charcoal", !isLogin);
+    tabRegister?.classList.toggle("text-charcoal/60", isLogin);
+  }
+
+  tabLogin?.addEventListener("click", () => activateTab("login"));
+  tabRegister?.addEventListener("click", () => activateTab("register"));
+
+  function bindForm(form: HTMLFormElement | null, endpoint: string, errorId: string) {
+    const errorEl = document.getElementById(errorId);
+    form?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      errorEl?.classList.add("hidden");
+      const submitBtn = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+
+      const payload = Object.fromEntries(new FormData(form).entries());
+
+      try {
+        await fetchJson(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        window.location.href = redirectTarget;
+      } catch (err) {
+        if (errorEl) {
+          errorEl.textContent = err instanceof Error ? err.message : "Ocurrió un error. Intenta de nuevo.";
+          errorEl.classList.remove("hidden");
+        }
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+  }
+
+  bindForm(loginForm, "/api/auth/login", "login-error");
+  bindForm(registerForm, "/api/auth/register", "register-error");
+</script>

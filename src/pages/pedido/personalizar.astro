@@ -1,0 +1,31 @@
+---
+import { getSessionUser } from "../../lib/auth";
+import { siteConfig } from "../../config/site";
+
+// Esta página ya NO renderiza el resumen/formulario del pedido — eso
+// duplicaba exactamente lo que ya muestra el paso 2 del CartDrawer (montado
+// en BaseLayout), y terminaban apareciendo los dos juntos (la página de
+// fondo + el drawer encima), muy repetitivo. Esta ruta sigue existiendo
+// solo porque es el destino del redirect post-login que arma CartDrawer.astro
+// cuando alguien sin sesión hace clic en "Continuar" — en cuanto carga,
+// redirige a "/" pidiéndole al drawer que se reabra directo en ese paso.
+const session = getSessionUser(Astro.request);
+if (!session) {
+  return Astro.redirect("/cuenta/acceso?redirect=" + encodeURIComponent("/pedido/personalizar"));
+}
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Redirigiendo… — {siteConfig.name}</title>
+  </head>
+  <body>
+    <script>
+      sessionStorage.setItem("cart-drawer-open", "1");
+      sessionStorage.setItem("cart-drawer-step", "details");
+      window.location.replace("/");
+    </script>
+  </body>
+</html>

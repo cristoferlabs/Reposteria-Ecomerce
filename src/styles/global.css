@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@theme {
+  /* Paleta de marca */
+  --color-cream: #fbf1e7;
+  --color-pink-soft: #f6c7d9;
+  --color-pink-strong: #e4568a;
+  --color-charcoal: #2e2320;
+  --color-gold: #c9a227;
+
+  /* Tipografía: un solo tipo de letra en todo el sitio (antes los títulos
+     usaban Fraunces, un serif — se reemplazó por un estilo más limpio y
+     sans-serif). --font-display queda como alias de --font-body para no
+     tener que tocar cada componente que ya usa la clase font-display. */
+  --font-display: "Work Sans", "Inter", sans-serif;
+  --font-body: "Work Sans", "Inter", sans-serif;
+}
+
+/* En @layer base para que una utilidad de Tailwind (ej. bg-neutral-50 en
+   AdminLayout) pueda sobreescribir esto sin pelear con la cascada — fuera
+   de un @layer, esta regla le gana a cualquier utilidad sin importar el
+   orden, porque los estilos sin capa siempre superan a los que sí tienen. */
+@layer base {
+  body {
+    background-color: #ffffff;
+    color: var(--color-charcoal);
+    font-family: var(--font-body);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+  }
+}
+
+/* Marquee del AnnouncementBar — el contenido está duplicado en el markup,
+   así que -50% siempre cierra el loop sin importar el ancho real del texto. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  animation: marquee 28s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
+}
+
+/* Fade-in sutil para el contenido que "avanza" tras una acción del checkout
+   (aceptar ajustes, elegir entrega, pagar) — el sitio es SSR con reload
+   completo entre pasos, así que esto suaviza la aparición del nuevo estado
+   en vez de un salto duro. Alternativa liviana a View Transitions. */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 400ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up {
+    animation: none;
+  }
+}

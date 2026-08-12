@@ -1,0 +1,23 @@
+---
+import type { OrderStatus } from "../../db/schema";
+import { STATUS_LABELS, STATUS_TONES, type StatusTone } from "../../lib/orders/orderStatusMeta";
+
+interface Props {
+  status: OrderStatus;
+}
+
+const { status } = Astro.props;
+
+const TONE_CLASSES: Record<StatusTone, string> = {
+  neutral: "bg-charcoal/10 text-charcoal",
+  warning: "bg-amber-100 text-amber-800",
+  success: "bg-emerald-100 text-emerald-800",
+  danger: "bg-red-100 text-red-700",
+};
+---
+
+<span
+  class={`inline-flex items-center rounded-full px-3 py-1 font-body text-xs font-semibold ${TONE_CLASSES[STATUS_TONES[status]]}`}
+>
+  {STATUS_LABELS[status]}
+</span>

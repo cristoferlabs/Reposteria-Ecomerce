@@ -1,0 +1,33 @@
+---
+// Estrellas de calificación reutilizables — mismo path SVG que ya se usaba
+// duplicado en ReviewsCarousel.astro y producto/[slug].astro, extraído acá
+// para no repetirlo más.
+interface Props {
+  rating: number;
+  size?: "sm" | "md" | "lg";
+}
+
+const { rating, size = "sm" } = Astro.props;
+
+const SIZE_CLASSES: Record<NonNullable<Props["size"]>, string> = {
+  sm: "h-4 w-4",
+  md: "h-5 w-5",
+  lg: "h-7 w-7",
+};
+const starClass = SIZE_CLASSES[size];
+---
+
+<div class="flex gap-0.5 text-gold" aria-hidden="true">
+  {
+    Array.from({ length: 5 }).map((_, i) => (
+      <svg
+        viewBox="0 0 20 20"
+        fill={i < Math.round(rating) ? "currentColor" : "none"}
+        stroke="currentColor"
+        class={starClass}
+      >
+        <path d="M10 1.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9L10 1.5z" stroke-linejoin="round" />
+      </svg>
+    ))
+  }
+</div>

@@ -1,0 +1,28 @@
+---
+import { getSessionUser } from "../../lib/auth";
+import { siteConfig } from "../../config/site";
+
+// Igual que pedido/personalizar.astro: esta ruta ya no renderiza su propia
+// página con la lista de pedidos — eso duplicaba al OrdersDrawer (montado en
+// BaseLayout, se abre desde "Mis pedidos" del navbar). Sigue existiendo
+// como destino de enlaces directos (el del footer, por ejemplo) — en cuanto
+// carga, redirige a "/" pidiéndole al drawer que se abra.
+const session = getSessionUser(Astro.request);
+if (!session) {
+  return Astro.redirect("/cuenta/acceso?redirect=" + encodeURIComponent("/cuenta/mis-pedidos"));
+}
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Redirigiendo… — {siteConfig.name}</title>
+  </head>
+  <body>
+    <script>
+      sessionStorage.setItem("orders-drawer-open", "1");
+      window.location.replace("/");
+    </script>
+  </body>
+</html>

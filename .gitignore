@@ -1,0 +1,27 @@
+# build output
+dist/
+.astro/
+
+# dependencies
+node_modules/
+
+# env
+.env
+.env.production
+
+# editor / OS
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+
+# logs
+npm-debug.log*
+
+# local db files (si se usa libsql local para desarrollo)
+*.db
+*.db-journal
+
+# imágenes originales sin optimizar (las versiones .webp usadas en el sitio
+# viven en public/assets/); se guardan localmente por si hace falta reprocesarlas
+assets-originals/

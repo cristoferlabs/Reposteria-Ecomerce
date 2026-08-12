@@ -1,0 +1,25 @@
+---
+import ProductCard from "../catalog/ProductCard.astro";
+
+interface Item {
+  name: string;
+  priceLabel: string;
+  image: string;
+  href: string;
+  hasVariants?: boolean;
+}
+
+interface Props {
+  title: string;
+  items: Item[];
+}
+
+const { title, items } = Astro.props;
+---
+
+<section class="mx-auto max-w-7xl px-4 py-12 md:px-6 md:py-16">
+  <h2 class="text-center font-display text-2xl font-semibold text-charcoal sm:text-3xl">{title}</h2>
+  <div class="mt-8 grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-4 md:gap-8">
+    {items.map((item) => <ProductCard {...item} />)}
+  </div>
+</section>

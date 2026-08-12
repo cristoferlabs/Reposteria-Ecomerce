@@ -1,0 +1,294 @@
+---
+import { siteConfig, categoryNav } from "../../config/site";
+import { db } from "../../db/client";
+import { getSessionUser } from "../../lib/auth";
+
+interface Props {
+  cartCount?: number;
+}
+
+const { cartCount = 0 } = Astro.props;
+
+// Categorías reales para el dropdown del primer link de navegación — el
+// resto de categoryNav sigue siendo la navegación aspiracional del sitio
+// (algunas rutas todavía no existen), pero el dropdown no debe mentir.
+const realCategories = await db.query.categories.findMany({
+  orderBy: (categories, { asc }) => [asc(categories.sortOrder)],
+});
+
+const session = getSessionUser(Astro.request);
+const firstName = session?.name.split(" ")[0];
+---
+
+<header class="sticky top-0 z-50 border-b border-charcoal/10 bg-white/95 backdrop-blur">
+  <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
+    <!-- Izquierda: logo/marca -->
+    <a href="/" class="shrink-0">
+      <img src={siteConfig.logoUrl} alt={siteConfig.name} class="h-12 w-12 object-contain sm:h-14 sm:w-14" />
+    </a>
+
+    <!-- Centro: categorías (desktop) -->
+    <ul class="hidden items-center gap-8 font-body text-sm font-medium text-charcoal md:flex">
+      {
+        categoryNav.map((item, index) =>
+          index === 0 ? (
+            <li class="relative">
+              <button
+                type="button"
+                id="nav-dropdown-toggle"
+                aria-expanded="false"
+                class="flex items-center gap-1 py-2 transition-colors hover:text-pink-strong"
+              >
+                {item.label}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  class="h-3.5 w-3.5 transition-transform duration-200"
+                  id="nav-dropdown-chevron"
+                >
+                  <path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+              <div
+                id="nav-dropdown-panel"
+                class="invisible absolute top-full left-1/2 z-40 mt-3 w-64 -translate-x-1/2 translate-y-1 rounded-xl border border-charcoal/10 bg-white p-2 opacity-0 shadow-lg transition-all duration-200"
+              >
+                {realCategories.map((cat) => (
+                  <a
+                    href={`/catalogo/${cat.slug}`}
+                    class="block rounded-lg px-3 py-2 text-sm text-charcoal transition-colors hover:bg-pink-soft/20 hover:text-pink-strong"
+                  >
+                    {cat.name}
+                  </a>
+                ))}
+              </div>
+            </li>
+          ) : (
+            <li>
+              <a href={item.href} class="transition-colors hover:text-pink-strong">
+                {item.label}
+              </a>
+            </li>
+          ),
+        )
+      }
+    </ul>
+
+    <!-- Derecha: cuenta + búsqueda + carrito + hamburguesa (mobile) -->
+    <div class="flex shrink-0 items-center gap-1 sm:gap-2">
+      {
+        session ? (
+          <>
+            {session.role === "admin" && (
+              <a
+                href="/admin/solicitudes"
+                class="hidden rounded-full bg-pink-strong px-3 py-1.5 font-body text-xs font-semibold text-white transition-colors hover:bg-charcoal sm:inline-block"
+              >
+                Panel admin
+              </a>
+            )}
+            <span class="hidden font-body text-sm text-charcoal/70 sm:inline">Hola, {firstName}</span>
+            <button
+              type="button"
+              id="orders-toggle"
+              class="hidden rounded-full px-3 py-1.5 font-body text-xs font-semibold text-charcoal transition-colors hover:bg-pink-soft/40 sm:inline-block"
+            >
+              Mis pedidos
+            </button>
+            <a
+              href="/api/auth/logout"
+              aria-label="Cerrar sesión"
+              class="rounded-full p-2 text-charcoal transition-colors hover:bg-pink-soft/40"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5">
+                <path d="M15 17v1a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M9 12h11m0 0-3-3m3 3-3 3" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </a>
+          </>
+        ) : (
+          <a
+            href="/cuenta/acceso"
+            aria-label="Iniciar sesión"
+            class="rounded-full p-2 text-charcoal transition-colors hover:bg-pink-soft/40"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5">
+              <circle cx="12" cy="8" r="3.5" />
+              <path d="M5 20c1.2-3.6 4-5.5 7-5.5s5.8 1.9 7 5.5" stroke-linecap="round" />
+            </svg>
+          </a>
+        )
+      }
+
+      <button
+        type="button"
+        id="search-toggle"
+        aria-label="Buscar"
+        aria-expanded="false"
+        class="rounded-full p-2 text-charcoal transition-colors hover:bg-pink-soft/40"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5">
+          <circle cx="11" cy="11" r="7" />
+          <path d="m21 21-4.3-4.3" stroke-linecap="round" />
+        </svg>
+      </button>
+
+      <button
+        type="button"
+        id="cart-toggle"
+        aria-label="Ver mi pedido"
+        class="relative rounded-full p-2 text-charcoal transition-colors hover:bg-pink-soft/40"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5">
+          <path d="M6 8h12l-1 12H7L6 8Z" stroke-linejoin="round" />
+          <path d="M9 8V6a3 3 0 0 1 6 0v2" stroke-linecap="round" />
+        </svg>
+        {
+          cartCount > 0 && (
+            <span class="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-pink-strong text-[10px] font-semibold text-white">
+              {cartCount}
+            </span>
+          )
+        }
+      </button>
+
+      <button
+        type="button"
+        id="mobile-menu-toggle"
+        aria-label="Abrir menú"
+        aria-expanded="false"
+        class="rounded-full p-2 text-charcoal transition-colors hover:bg-pink-soft/40 md:hidden"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5">
+          <path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Panel de búsqueda (desktop y mobile) -->
+  <div id="search-panel" class="hidden border-t border-charcoal/10 bg-white px-4 py-3 md:px-6">
+    <form action="/buscar" method="get" class="mx-auto flex max-w-2xl items-center gap-2 rounded-full border border-charcoal/20 bg-white px-4 py-2">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4 shrink-0 text-charcoal/50">
+        <circle cx="11" cy="11" r="7" />
+        <path d="m21 21-4.3-4.3" stroke-linecap="round" />
+      </svg>
+      <input
+        type="search"
+        name="q"
+        placeholder="Buscar tortas, cupcakes, brownies..."
+        class="w-full bg-transparent text-sm text-charcoal outline-none placeholder:text-charcoal/40"
+      />
+    </form>
+  </div>
+
+  <!-- Menú móvil -->
+  <div id="mobile-menu" class="hidden border-t border-charcoal/10 bg-white px-4 py-4 md:hidden">
+    <ul class="flex flex-col gap-4 font-body text-sm font-medium text-charcoal">
+      {
+        categoryNav.map((item) => (
+          <li>
+            <a href={item.href} class="block py-1">
+              {item.label}
+            </a>
+          </li>
+        ))
+      }
+      {
+        session && (
+          <li class="border-t border-charcoal/10 pt-4">
+            <button type="button" id="orders-toggle-mobile" class="block py-1 text-left">
+              Mis pedidos
+            </button>
+          </li>
+        )
+      }
+      {
+        session?.role === "admin" && (
+          <li>
+            <a href="/admin/solicitudes" class="block py-1 font-semibold text-pink-strong">
+              Panel admin
+            </a>
+          </li>
+        )
+      }
+    </ul>
+  </div>
+</header>
+
+<script>
+  function setupToggle(buttonId: string, panelId: string) {
+    const button = document.getElementById(buttonId);
+    const panel = document.getElementById(panelId);
+    if (!button || !panel) return;
+
+    button.addEventListener("click", () => {
+      const isOpen = panel.classList.toggle("hidden") === false;
+      button.setAttribute("aria-expanded", String(isOpen));
+    });
+  }
+
+  setupToggle("search-toggle", "search-panel");
+  setupToggle("mobile-menu-toggle", "mobile-menu");
+
+  // El carrito vive como componente aparte (CartDrawer.astro, montado en
+  // BaseLayout) — este botón solo dispara el mismo evento que ya usa
+  // ProductCard para abrir el quick-view, no maneja el panel directamente.
+  document.getElementById("cart-toggle")?.addEventListener("click", () => {
+    document.dispatchEvent(new CustomEvent("open-cart"));
+  });
+
+  // Mismo patrón: "Mis pedidos" ya no navega a una página aparte, abre el
+  // OrdersDrawer (montado en BaseLayout junto al resto de paneles).
+  function openOrders() {
+    document.dispatchEvent(new CustomEvent("open-orders"));
+  }
+  document.getElementById("orders-toggle")?.addEventListener("click", openOrders);
+  document.getElementById("orders-toggle-mobile")?.addEventListener("click", openOrders);
+
+  // Dropdown de categorías: fade + slide animado en vez de display:none
+  // instantáneo, con el mismo patrón de toggle de clase que el resto del
+  // componente (solo que acá las clases controlan opacidad/posición).
+  const dropdownToggle = document.getElementById("nav-dropdown-toggle");
+  const dropdownPanel = document.getElementById("nav-dropdown-panel");
+  const dropdownChevron = document.getElementById("nav-dropdown-chevron");
+
+  function closeDropdown() {
+    if (!dropdownPanel || !dropdownToggle) return;
+    dropdownPanel.classList.add("invisible", "opacity-0", "translate-y-1");
+    dropdownPanel.classList.remove("visible", "opacity-100", "translate-y-0");
+    dropdownToggle.setAttribute("aria-expanded", "false");
+    dropdownChevron?.classList.remove("rotate-180");
+  }
+
+  function toggleDropdown() {
+    if (!dropdownPanel || !dropdownToggle) return;
+    const isOpen = dropdownToggle.getAttribute("aria-expanded") === "true";
+    if (isOpen) {
+      closeDropdown();
+    } else {
+      dropdownPanel.classList.remove("invisible", "opacity-0", "translate-y-1");
+      dropdownPanel.classList.add("visible", "opacity-100", "translate-y-0");
+      dropdownToggle.setAttribute("aria-expanded", "true");
+      dropdownChevron?.classList.add("rotate-180");
+    }
+  }
+
+  dropdownToggle?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleDropdown();
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!dropdownPanel || !dropdownToggle) return;
+    if (dropdownPanel.contains(event.target as Node) || dropdownToggle.contains(event.target as Node)) return;
+    closeDropdown();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeDropdown();
+  });
+</script>

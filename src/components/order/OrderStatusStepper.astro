@@ -1,0 +1,118 @@
+---
+import type { OrderStatus } from "../../db/schema";
+import {
+  HAPPY_PATH_STEPS,
+  getStepIndex,
+  getStepIndexFromHistory,
+  isExceptionStatus,
+} from "../../lib/orders/orderStatusMeta";
+
+interface StatusHistoryEntry {
+  fromStatus: OrderStatus | null;
+  toStatus: OrderStatus;
+  note: string | null;
+  createdAt: string | Date;
+}
+
+interface Props {
+  status: OrderStatus;
+  statusHistory: StatusHistoryEntry[];
+  rejectedReason: string | null;
+}
+
+const { status, statusHistory, rejectedReason } = Astro.props;
+
+const exception = isExceptionStatus(status);
+const activeIndex = exception ? getStepIndexFromHistory(statusHistory) : getStepIndex(status);
+const showAdjustmentsBadge = status === "ajustes_propuestos";
+
+const lastHistoryNote = statusHistory.length > 0 ? statusHistory[statusHistory.length - 1].note : null;
+const exceptionMessage =
+  status === "rechazado"
+    ? (rejectedReason ?? "El repostero no pudo tomar este pedido.")
+    : (lastHistoryNote ?? "Este pedido fue cancelado.");
+
+// Toda la comparación numérica se resuelve acá, en frontmatter plano, y no
+// en el template — el compilador de Astro puede confundir un "<" suelto
+// dentro de una expresión de template con el inicio de una etiqueta.
+const lastStepIndex = HAPPY_PATH_STEPS.length - 1;
+const steps = HAPPY_PATH_STEPS.map((step, index) => {
+  const isLast = index === lastStepIndex;
+  const isCompleted = !exception && index < activeIndex;
+  const isCurrent = !exception && index === activeIndex;
+  const isReached = exception && index <= activeIndex;
+
+  const circleClasses = exception
+    ? isReached
+      ? "border-charcoal/30 bg-charcoal/10 text-charcoal/50"
+      : "border-charcoal/10 bg-white text-charcoal/30"
+    : isCompleted
+      ? "border-pink-strong bg-pink-strong text-white"
+      : isCurrent
+        ? "border-pink-strong bg-white text-pink-strong"
+        : "border-charcoal/20 bg-white text-charcoal/40";
+
+  const labelClasses = !exception && (isCompleted || isCurrent) ? "text-charcoal" : "text-charcoal/40";
+  const lineClasses = !exception && isCompleted ? "bg-pink-strong" : "bg-charcoal/10";
+
+  return {
+    key: step.key,
+    label: step.label,
+    isLast,
+    isCurrent,
+    circleClasses,
+    labelClasses,
+    lineClasses,
+    symbol: isCompleted ? "✓" : String(index + 1),
+    showAdjustmentsBadge: showAdjustmentsBadge && isCurrent,
+  };
+});
+---
+
+{
+  exception && (
+    <div
+      class={`mb-6 rounded-lg border px-4 py-3 text-sm ${
+        status === "rechazado" ? "border-red-200 bg-red-50 text-red-700" : "border-charcoal/20 bg-charcoal/5 text-charcoal"
+      }`}
+    >
+      <p class="font-semibold">{status === "rechazado" ? "Solicitud rechazada" : "Pedido cancelado"}</p>
+      <p class="mt-1">{exceptionMessage}</p>
+    </div>
+  )
+}
+
+<!-- Barra horizontal de pasos, en todos los tamaños de pantalla (antes había
+     también una versión sidebar vertical solo para desktop — se sacó porque
+     dejaba demasiado espacio en blanco en pantallas anchas). overflow-x-auto
+     sigue como salvavidas en pantallas angostas con los 6 pasos. -->
+<ol class="flex items-start overflow-x-auto pb-2">
+  {
+    steps.map((step) => (
+      <li class="relative flex flex-1 shrink-0 flex-col items-center px-2 first:pl-0 last:pr-0" style="min-width: 88px">
+        {!step.isLast && <div class={`absolute top-4 left-1/2 h-0.5 w-full ${step.lineClasses}`} aria-hidden="true" />}
+        <div class="relative">
+          <span
+            class={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 font-body text-xs font-semibold ${step.circleClasses}`}
+          >
+            {step.symbol}
+          </span>
+          {step.showAdjustmentsBadge && (
+            <span class="absolute -top-2 -right-2 z-20 rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-semibold text-white">
+              !
+            </span>
+          )}
+        </div>
+        <p class={`mt-2 text-center font-body text-xs font-medium ${step.labelClasses}`}>{step.label}</p>
+      </li>
+    ))
+  }
+</ol>
+
+{
+  showAdjustmentsBadge && (
+    <p class="mt-1 text-center font-body text-xs font-medium text-amber-700">
+      El repostero propuso condiciones distintas — revisa el detalle más abajo.
+    </p>
+  )
+}

@@ -1,0 +1,104 @@
+---
+import "../styles/global.css";
+import { siteConfig } from "../config/site";
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+
+const navItems = [
+  { label: "Solicitudes", href: "/admin/solicitudes" },
+  { label: "Puntos de entrega", href: "/admin/puntos-entrega" },
+  { label: "Reseñas", href: "/admin/resenas" },
+];
+const pathname = Astro.url.pathname;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700;800&display=swap"
+    />
+    <title>{title} — Panel {siteConfig.name}</title>
+  </head>
+  <body class="min-h-screen bg-neutral-50 font-body text-charcoal">
+    <header class="border-b border-charcoal/10 bg-white">
+      <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 md:px-6">
+        <a href="/admin/solicitudes" class="font-display text-lg font-semibold text-charcoal">
+          {siteConfig.name} <span class="text-pink-strong">· Panel</span>
+        </a>
+
+        <nav class="hidden items-center gap-6 font-body text-sm font-medium md:flex">
+          {
+            navItems.map((item) => (
+              <a
+                href={item.href}
+                class={
+                  pathname.startsWith(item.href)
+                    ? "font-semibold text-pink-strong"
+                    : "text-charcoal/70 hover:text-pink-strong"
+                }
+              >
+                {item.label}
+              </a>
+            ))
+          }
+          <a href="/" class="text-charcoal/70 hover:text-pink-strong">Ver tienda ↗</a>
+        </nav>
+
+        <button
+          type="button"
+          id="admin-mobile-menu-toggle"
+          aria-label="Abrir menú"
+          aria-expanded="false"
+          class="rounded-full p-2 text-charcoal transition-colors hover:bg-pink-soft/40 md:hidden"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5">
+            <path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      <div id="admin-mobile-menu" class="hidden border-t border-charcoal/10 px-4 py-4 md:hidden">
+        <ul class="flex flex-col gap-4 font-body text-sm font-medium">
+          {
+            navItems.map((item) => (
+              <li>
+                <a
+                  href={item.href}
+                  class={pathname.startsWith(item.href) ? "font-semibold text-pink-strong" : "text-charcoal/70"}
+                >
+                  {item.label}
+                </a>
+              </li>
+            ))
+          }
+          <li class="border-t border-charcoal/10 pt-4">
+            <a href="/" class="text-charcoal/70">Ver tienda ↗</a>
+          </li>
+        </ul>
+      </div>
+    </header>
+    <main class="mx-auto max-w-6xl px-4 py-8 md:px-6">
+      <slot />
+    </main>
+
+    <script>
+      const toggle = document.getElementById("admin-mobile-menu-toggle");
+      const menu = document.getElementById("admin-mobile-menu");
+      toggle?.addEventListener("click", () => {
+        const isOpen = menu?.classList.toggle("hidden") === false;
+        toggle.setAttribute("aria-expanded", String(isOpen));
+      });
+    </script>
+  </body>
+</html>

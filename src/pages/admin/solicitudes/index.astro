@@ -1,0 +1,121 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import OrderStatusBadge from "../../../components/order/OrderStatusBadge.astro";
+import { getSessionUser, isAdminEmail } from "../../../lib/auth";
+import { fetchJson, internalApiUrl } from "../../../lib/http/fetchJson";
+import { formatSoles } from "../../../lib/orders/pricing";
+import { ORDER_STATUSES, type OrderStatus } from "../../../db/schema";
+import { STATUS_LABELS } from "../../../lib/orders/orderStatusMeta";
+
+const session = getSessionUser(Astro.request);
+if (!session) {
+  return Astro.redirect(
+    "/cuenta/acceso?redirect=" + encodeURIComponent(Astro.url.pathname + Astro.url.search),
+  );
+}
+if (!isAdminEmail(session.email)) {
+  return Astro.rewrite("/404");
+}
+
+const statusFilter = Astro.url.searchParams.get("status") as OrderStatus | null;
+
+interface OrderListItem {
+  publicId: string;
+  status: OrderStatus;
+  totalCents: number;
+  desiredDate: string;
+  isUrgent: boolean;
+  customer: { name: string; email: string };
+}
+
+// Se trae la lista completa (sin filtrar en el fetch) para poder mostrar el
+// conteo por estado en cada pestaña de filtro — el filtrado por pestaña se
+// hace acá mismo, en frontmatter.
+const { orders: allOrders } = await fetchJson<{ orders: OrderListItem[] }>(
+  internalApiUrl("/api/admin/solicitudes"),
+  { headers: { cookie: Astro.request.headers.get("cookie") ?? "" } },
+);
+const orders = statusFilter ? allOrders.filter((o) => o.status === statusFilter) : allOrders;
+const counts = ORDER_STATUSES.reduce(
+  (acc, s) => {
+    acc[s] = allOrders.filter((o) => o.status === s).length;
+    return acc;
+  },
+  {} as Record<OrderStatus, number>,
+);
+---
+
+<AdminLayout title="Solicitudes">
+  <h1 class="font-display text-2xl font-semibold text-charcoal">Solicitudes</h1>
+
+  <div class="mt-4 flex flex-wrap gap-2">
+    <a
+      href="/admin/solicitudes"
+      class={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+        !statusFilter ? "bg-pink-strong text-white" : "border border-charcoal/15 bg-white text-charcoal/70"
+      }`}
+    >
+      Todas ({allOrders.length})
+    </a>
+    {
+      ORDER_STATUSES.map((s) => (
+        <a
+          href={`/admin/solicitudes?status=${s}`}
+          class={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+            statusFilter === s ? "bg-pink-strong text-white" : "border border-charcoal/15 bg-white text-charcoal/70"
+          }`}
+        >
+          {STATUS_LABELS[s]} ({counts[s]})
+        </a>
+      ))
+    }
+  </div>
+
+  <div class="mt-6 overflow-x-auto rounded-lg border border-charcoal/10 bg-white">
+    <table class="w-full text-left text-sm">
+      <thead class="border-b border-charcoal/10 text-xs tracking-wide text-charcoal/50 uppercase">
+        <tr>
+          <th class="px-4 py-3">Pedido</th>
+          <th class="px-4 py-3">Cliente</th>
+          <th class="px-4 py-3">Estado</th>
+          <th class="px-4 py-3">Fecha deseada</th>
+          <th class="px-4 py-3 text-right">Total</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-charcoal/5">
+        {
+          orders.length === 0 && (
+            <tr>
+              <td colspan="5" class="px-4 py-8 text-center text-charcoal/50">
+                No hay solicitudes en este estado.
+              </td>
+            </tr>
+          )
+        }
+        {
+          orders.map((order) => (
+            <tr class:list={["transition-colors hover:bg-pink-soft/10", order.isUrgent && "bg-amber-50/50"]}>
+              <td class="px-4 py-3">
+                <a href={`/admin/solicitudes/${order.publicId}`} class="font-medium text-pink-strong hover:underline">
+                  #{order.publicId}
+                </a>
+              </td>
+              <td class="px-4 py-3">
+                <p class="text-charcoal">{order.customer.name}</p>
+                <p class="text-xs text-charcoal/50">{order.customer.email}</p>
+              </td>
+              <td class="px-4 py-3">
+                <OrderStatusBadge status={order.status} />
+              </td>
+              <td class="px-4 py-3 text-charcoal/70">
+                {new Date(order.desiredDate).toLocaleDateString("es-PE", { dateStyle: "medium" })}
+                {order.isUrgent && <span class="ml-1 text-amber-600">· urgente</span>}
+              </td>
+              <td class="px-4 py-3 text-right font-medium text-charcoal">{formatSoles(order.totalCents)}</td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+</AdminLayout>

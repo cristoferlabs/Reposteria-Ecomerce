@@ -1,0 +1,39 @@
+{
+  "name": "reposteria-ecommerce",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=18.20.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "start": "node ./dist/server/entry.mjs",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "check": "astro check",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "node --loader ts-node/esm src/db/seed.ts"
+  },
+  "dependencies": {
+    "@astrojs/node": "^11.1.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "astro": "^7.2.0",
+    "drizzle-orm": "^0.45.2",
+    "mercadopago": "^3.3.0",
+    "mysql2": "^3.23.2",
+    "nanoid": "^6.0.1",
+    "tailwindcss": "^4.3.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "dotenv": "^17.0.0",
+    "drizzle-kit": "^0.31.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,420 @@
+---
+import { formatSoles } from "../../lib/orders/pricing";
+
+// Panel deslizable, montado una sola vez en BaseLayout — igual que
+// QuickViewModal, pero con datos ya resueltos server-side desde la cookie
+// (BaseLayout hace el query de productos, acá solo se renderiza).
+//
+// Tiene 2 "pasos" dentro del mismo panel (cambian con classList, sin
+// recargar): paso 1 = ítems del carrito, paso 2 = fecha/urgente/notas antes
+// de enviar la solicitud (antes esto vivía solo en pedido/personalizar.astro
+// como una página aparte — esa página se deja intacta como fallback para el
+// flujo de login→redirect, pero el camino principal ahora es este drawer).
+//
+// El sitio es SSR con reload completo entre pasos (no hay estado de cliente
+// persistente), así que los cambios de cantidad/quitar escriben la cookie y
+// recargan la página — igual que ya hace pedido/personalizar.astro. Para que
+// el panel quede abierto después del reload (en vez de perder el contexto),
+// se usa un flag en sessionStorage que este mismo componente lee al cargar.
+
+export interface CartDrawerLine {
+  productId: number;
+  variantId: number | null;
+  quantity: number;
+  product: { name: string; imageUrl: string; slug: string };
+  variant: { name: string } | null;
+  unitPriceCents: number;
+  lineTotalCents: number;
+}
+
+interface Props {
+  lines: CartDrawerLine[];
+  subtotalCents: number;
+  isLoggedIn: boolean;
+  minDateStr: string;
+  allowsUrgentAny: boolean;
+}
+
+const { lines, subtotalCents, isLoggedIn, minDateStr, allowsUrgentAny } = Astro.props;
+---
+
+<div
+  id="cart-drawer-overlay"
+  class="invisible fixed inset-0 z-60 bg-charcoal/50 opacity-0 transition-opacity duration-200"
+>
+  <aside
+    id="cart-drawer-panel"
+    class="ml-auto flex h-full w-full max-w-sm translate-x-full flex-col bg-white shadow-2xl transition-transform duration-200"
+  >
+    <!-- Paso 1: ítems del carrito -->
+    <div id="cart-step-items">
+      <div class="flex items-center justify-between border-b border-charcoal/10 px-5 py-4">
+        <h2 class="font-display text-lg font-semibold text-charcoal">Tu pedido</h2>
+        <button
+          type="button"
+          id="cart-drawer-close"
+          aria-label="Cerrar"
+          class="rounded-full p-1 text-charcoal/50 transition-colors hover:bg-charcoal/5 hover:text-charcoal"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+            <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      {
+        lines.length === 0 ? (
+          <div class="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
+            <p class="text-sm text-charcoal/60">Todavía no agregaste nada a tu pedido.</p>
+            <a
+              href="/catalogo/tortas"
+              id="cart-drawer-empty-link"
+              class="rounded-full bg-pink-strong px-6 py-2.5 font-body text-sm font-semibold text-white transition-colors hover:bg-charcoal"
+            >
+              Ver catálogo
+            </a>
+          </div>
+        ) : (
+          <>
+            <ul class="max-h-[calc(100vh-220px)] divide-y divide-charcoal/10 overflow-y-auto px-5">
+              {lines.map((line) => (
+                <li
+                  class="flex items-center gap-3 py-4"
+                  data-drawer-line
+                  data-product-id={line.productId}
+                  data-variant-id={line.variantId ?? ""}
+                >
+                  <div class="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-neutral-100">
+                    <img src={line.product.imageUrl} alt={line.product.name} class="h-full w-full object-cover" />
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <p class="truncate font-body text-sm font-medium text-charcoal">{line.product.name}</p>
+                    {line.variant && <p class="text-xs text-charcoal/60">{line.variant.name}</p>}
+                    <p class="mt-1 text-sm font-semibold text-pink-strong">{formatSoles(line.unitPriceCents)}</p>
+                    <div class="mt-2 flex items-center gap-2">
+                      <button
+                        type="button"
+                        data-drawer-qty-decrease
+                        aria-label="Restar cantidad"
+                        class="flex h-6 w-6 items-center justify-center rounded-full border border-charcoal/20 text-charcoal transition-colors hover:bg-neutral-100"
+                      >
+                        −
+                      </button>
+                      <span data-drawer-qty-value class="w-5 text-center text-sm text-charcoal">
+                        {line.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        data-drawer-qty-increase
+                        aria-label="Sumar cantidad"
+                        class="flex h-6 w-6 items-center justify-center rounded-full border border-charcoal/20 text-charcoal transition-colors hover:bg-neutral-100"
+                      >
+                        +
+                      </button>
+                      <button
+                        type="button"
+                        data-drawer-remove
+                        aria-label="Quitar del pedido"
+                        class="ml-2 text-xs text-charcoal/40 transition-colors hover:text-pink-strong"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            <div class="border-t border-charcoal/10 px-5 py-4">
+              <div class="flex items-center justify-between">
+                <span class="font-body text-sm text-charcoal/70">Subtotal</span>
+                <span class="font-body text-lg font-semibold text-charcoal">{formatSoles(subtotalCents)}</span>
+              </div>
+              {
+                isLoggedIn ? (
+                  <button
+                    type="button"
+                    id="cart-drawer-continue"
+                    class="mt-4 block w-full rounded-full bg-pink-strong px-6 py-3 text-center font-body text-sm font-semibold text-white transition-colors hover:bg-charcoal"
+                  >
+                    Continuar
+                  </button>
+                ) : (
+                  <a
+                    href={"/cuenta/acceso?redirect=" + encodeURIComponent("/pedido/personalizar")}
+                    class="mt-4 block w-full rounded-full bg-pink-strong px-6 py-3 text-center font-body text-sm font-semibold text-white transition-colors hover:bg-charcoal"
+                  >
+                    Inicia sesión para continuar
+                  </a>
+                )
+              }
+            </div>
+          </>
+        )
+      }
+    </div>
+
+    <!-- Paso 2: fecha deseada / urgencia / notas, antes de enviar la solicitud -->
+    <div id="cart-step-details" class="hidden">
+      <div class="flex items-center gap-2 border-b border-charcoal/10 px-5 py-4">
+        <button
+          type="button"
+          id="cart-step-back"
+          aria-label="Volver"
+          class="rounded-full p-1 text-charcoal/50 transition-colors hover:bg-charcoal/5 hover:text-charcoal"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+            <path d="m15 18-6-6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+        <h2 class="flex-1 font-display text-lg font-semibold text-charcoal">Detalles de tu pedido</h2>
+        <button
+          type="button"
+          id="cart-drawer-close-2"
+          aria-label="Cerrar"
+          class="rounded-full p-1 text-charcoal/50 transition-colors hover:bg-charcoal/5 hover:text-charcoal"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+            <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="max-h-[calc(100vh-260px)] space-y-6 overflow-y-auto px-5 py-4">
+        <div>
+          <label for="drawer-desired-date" class="block font-body text-sm font-semibold text-charcoal">
+            Fecha deseada
+          </label>
+          <input
+            type="date"
+            id="drawer-desired-date"
+            min={minDateStr}
+            required
+            class="mt-2 w-full rounded-md border border-charcoal/20 px-3 py-2 text-sm"
+          />
+          <p class="mt-1 text-xs text-charcoal/60">
+            Con anticipación normal, disponible desde el {minDateStr}. Si lo necesitas antes, marca "urgente".
+          </p>
+        </div>
+
+        {
+          allowsUrgentAny && (
+            <label class="flex items-center gap-2 text-sm text-charcoal">
+              <input type="checkbox" id="drawer-is-urgent" class="h-4 w-4" />
+              Necesito este pedido con urgencia (el repostero puede agregar un recargo)
+            </label>
+          )
+        }
+
+        <div>
+          <label for="drawer-phone" class="block font-body text-sm font-semibold text-charcoal">
+            Teléfono / WhatsApp
+          </label>
+          <input
+            type="tel"
+            id="drawer-phone"
+            placeholder="Ej. 987654321"
+            required
+            class="mt-2 w-full rounded-md border border-charcoal/20 px-3 py-2 text-sm"
+          />
+          <p class="mt-1 text-xs text-charcoal/60">Para coordinar tu pedido directamente.</p>
+        </div>
+
+        <div>
+          <label for="drawer-notes" class="block font-body text-sm font-semibold text-charcoal">
+            Notas para el repostero (opcional)
+          </label>
+          <textarea
+            id="drawer-notes"
+            rows="3"
+            maxlength="2000"
+            placeholder="Colores, mensaje en la torta, alergias, etc."
+            class="mt-2 w-full rounded-md border border-charcoal/20 px-3 py-2 text-sm"
+          ></textarea>
+        </div>
+
+        <p id="drawer-order-error" class="hidden text-sm text-red-600"></p>
+      </div>
+
+      <div class="border-t border-charcoal/10 px-5 py-4">
+        <div class="flex items-center justify-between">
+          <span class="font-body text-sm text-charcoal/70">Subtotal</span>
+          <span class="font-body text-lg font-semibold text-charcoal">{formatSoles(subtotalCents)}</span>
+        </div>
+        <button
+          type="button"
+          id="drawer-submit-order"
+          class="mt-4 block w-full rounded-full bg-pink-strong px-6 py-3 text-center font-body text-sm font-semibold text-white transition-colors hover:bg-charcoal"
+        >
+          Enviar solicitud
+        </button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+  import { readCartFromDocument, writeCartToDocument, clearCartInDocument } from "../../lib/cart/cookieCart";
+  import { fetchJson } from "../../lib/http/fetchJson";
+
+  const DRAWER_REOPEN_KEY = "cart-drawer-open";
+
+  const overlay = document.getElementById("cart-drawer-overlay");
+  const panel = document.getElementById("cart-drawer-panel");
+  const closeBtn = document.getElementById("cart-drawer-close");
+  const closeBtn2 = document.getElementById("cart-drawer-close-2");
+  const stepItems = document.getElementById("cart-step-items");
+  const stepDetails = document.getElementById("cart-step-details");
+
+  function showItemsStep() {
+    stepDetails?.classList.add("hidden");
+    stepItems?.classList.remove("hidden");
+  }
+
+  function showDetailsStep() {
+    stepItems?.classList.add("hidden");
+    stepDetails?.classList.remove("hidden");
+  }
+
+  function openDrawer() {
+    if (!overlay || !panel) return;
+    showItemsStep();
+    overlay.classList.remove("invisible", "opacity-0");
+    overlay.classList.add("opacity-100");
+    panel.classList.remove("translate-x-full");
+    panel.classList.add("translate-x-0");
+    document.body.classList.add("overflow-hidden");
+  }
+
+  function closeDrawer() {
+    if (!overlay || !panel) return;
+    overlay.classList.add("opacity-0");
+    overlay.classList.remove("opacity-100");
+    panel.classList.add("translate-x-full");
+    panel.classList.remove("translate-x-0");
+    document.body.classList.remove("overflow-hidden");
+    window.setTimeout(() => overlay.classList.add("invisible"), 200);
+  }
+
+  document.addEventListener("open-cart", openDrawer);
+  closeBtn?.addEventListener("click", closeDrawer);
+  closeBtn2?.addEventListener("click", closeDrawer);
+  overlay?.addEventListener("click", (event) => {
+    if (event.target === overlay) closeDrawer();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeDrawer();
+  });
+
+  document.getElementById("cart-drawer-continue")?.addEventListener("click", showDetailsStep);
+  document.getElementById("cart-step-back")?.addEventListener("click", showItemsStep);
+
+  const DRAWER_STEP_KEY = "cart-drawer-step";
+
+  if (sessionStorage.getItem(DRAWER_REOPEN_KEY)) {
+    sessionStorage.removeItem(DRAWER_REOPEN_KEY);
+    const step = sessionStorage.getItem(DRAWER_STEP_KEY);
+    sessionStorage.removeItem(DRAWER_STEP_KEY);
+    openDrawer();
+    // Lo pide pedido/personalizar.astro tras el redirect de login: en vez de
+    // mostrar su propia pantalla, entra directo al paso de fecha/notas.
+    if (step === "details") showDetailsStep();
+  }
+
+  function persistAndReload(items: ReturnType<typeof readCartFromDocument>) {
+    writeCartToDocument(items);
+    sessionStorage.setItem(DRAWER_REOPEN_KEY, "1");
+    window.location.reload();
+  }
+
+  document.querySelectorAll<HTMLElement>("[data-drawer-line]").forEach((line) => {
+    const productId = Number(line.dataset.productId);
+    const variantId = line.dataset.variantId ? Number(line.dataset.variantId) : null;
+    const qtyValueEl = line.querySelector<HTMLElement>("[data-drawer-qty-value]");
+
+    function updateQuantity(delta: number) {
+      const current = Number(qtyValueEl?.textContent ?? "1");
+      const next = Math.min(50, Math.max(1, current + delta));
+      const items = readCartFromDocument().map((item) =>
+        item.productId === productId && item.variantId === variantId ? { ...item, quantity: next } : item,
+      );
+      persistAndReload(items);
+    }
+
+    line.querySelector("[data-drawer-qty-decrease]")?.addEventListener("click", () => updateQuantity(-1));
+    line.querySelector("[data-drawer-qty-increase]")?.addEventListener("click", () => updateQuantity(1));
+    line.querySelector("[data-drawer-remove]")?.addEventListener("click", () => {
+      const items = readCartFromDocument().filter(
+        (item) => !(item.productId === productId && item.variantId === variantId),
+      );
+      persistAndReload(items);
+    });
+  });
+
+  // Paso 2: enviar la solicitud (misma lógica que antes vivía en
+  // pedido/personalizar.astro, portada acá).
+  const dateInput = document.getElementById("drawer-desired-date") as HTMLInputElement | null;
+  const urgentInput = document.getElementById("drawer-is-urgent") as HTMLInputElement | null;
+  const phoneInput = document.getElementById("drawer-phone") as HTMLInputElement | null;
+  const notesInput = document.getElementById("drawer-notes") as HTMLTextAreaElement | null;
+  const submitBtn = document.getElementById("drawer-submit-order") as HTMLButtonElement | null;
+  const errorEl = document.getElementById("drawer-order-error");
+
+  // Recordamos el último teléfono usado para no pedirlo de nuevo en cada
+  // pedido — nada sensible, es solo comodidad.
+  const LAST_PHONE_KEY = "arlet-last-phone";
+  if (phoneInput && !phoneInput.value) {
+    const savedPhone = localStorage.getItem(LAST_PHONE_KEY);
+    if (savedPhone) phoneInput.value = savedPhone;
+  }
+
+  function showDrawerError(message: string) {
+    if (!errorEl) return;
+    errorEl.textContent = message;
+    errorEl.classList.remove("hidden");
+  }
+
+  submitBtn?.addEventListener("click", async () => {
+    errorEl?.classList.add("hidden");
+
+    if (!dateInput?.value) {
+      showDrawerError("Elige una fecha deseada.");
+      return;
+    }
+    if (!phoneInput?.value) {
+      showDrawerError("Ingresa un teléfono de contacto.");
+      return;
+    }
+
+    const payload = {
+      items: readCartFromDocument().map((item) => ({
+        productId: item.productId,
+        ...(item.variantId ? { variantId: item.variantId } : {}),
+        quantity: item.quantity,
+      })),
+      desiredDate: dateInput.value,
+      isUrgent: urgentInput?.checked ?? false,
+      customerPhone: phoneInput.value,
+      ...(notesInput?.value ? { customerNotes: notesInput.value } : {}),
+    };
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Enviando...";
+
+    try {
+      const { order } = await fetchJson<{ order: { publicId: string } }>("/api/pedidos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      localStorage.setItem(LAST_PHONE_KEY, phoneInput.value);
+      clearCartInDocument();
+      window.location.href = `/pedido/estado/${order.publicId}`;
+    } catch (err) {
+      showDrawerError(err instanceof Error ? err.message : "No se pudo enviar la solicitud.");
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Enviar solicitud";
+    }
+  });
+</script>

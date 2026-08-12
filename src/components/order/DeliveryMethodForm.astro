@@ -1,0 +1,118 @@
+---
+interface Props {
+  publicId: string;
+  /** Resalta el bloque como "paso activo" dentro de la página de estado del pedido. */
+  active?: boolean;
+}
+
+const { publicId, active = false } = Astro.props;
+const borderClass = active ? "border-pink-strong ring-1 ring-pink-strong/30" : "border-charcoal/10";
+---
+
+<div data-delivery-form data-public-id={publicId} class={`mt-6 rounded-lg border p-4 ${borderClass}`}>
+  <p class="font-body text-sm font-semibold text-charcoal">Elige cómo recibirás tu pedido</p>
+  <div class="mt-4 space-y-3">
+    <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-charcoal/20 p-3 has-[:checked]:border-pink-strong">
+      <input type="radio" name="deliveryMethod" value="contraentrega" checked class="mt-1" />
+      <div class="flex-1">
+        <p class="text-sm font-medium text-charcoal">Contraentrega</p>
+        <p class="text-xs text-charcoal/60">
+          Recoges/recibes en un punto de la Línea 1. Pagas el 50% ahora y el resto contraentrega.
+        </p>
+        <select
+          data-delivery-point-select
+          disabled
+          class="mt-2 w-full rounded-md border border-charcoal/20 px-3 py-2 text-sm"
+        >
+          <option value="">Cargando puntos de entrega...</option>
+        </select>
+      </div>
+    </label>
+    <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-charcoal/20 p-3 has-[:checked]:border-pink-strong">
+      <input type="radio" name="deliveryMethod" value="delivery_propio" class="mt-1" />
+      <div class="flex-1">
+        <p class="text-sm font-medium text-charcoal">Delivery propio</p>
+        <p class="text-xs text-charcoal/60">
+          Tú gestionas tu propio delivery (Uber, InDrive, etc.). Pagas el 100% por adelantado.
+        </p>
+      </div>
+    </label>
+  </div>
+  <button
+    type="button"
+    data-delivery-submit
+    class="mt-4 rounded-full bg-pink-strong px-6 py-2.5 font-body text-sm font-semibold text-white transition-colors hover:bg-charcoal"
+  >
+    Confirmar entrega
+  </button>
+  <p data-delivery-error class="mt-2 hidden text-sm text-red-600"></p>
+</div>
+
+<script>
+  import { fetchJson } from "../../lib/http/fetchJson";
+
+  interface DeliveryPoint {
+    id: number;
+    name: string;
+    zone: string | null;
+    costCents: number;
+  }
+
+  const root = document.querySelector<HTMLElement>("[data-delivery-form]");
+
+  if (root) {
+    const publicId = root.dataset.publicId;
+    const select = root.querySelector<HTMLSelectElement>("[data-delivery-point-select]")!;
+    const submitBtn = root.querySelector<HTMLButtonElement>("[data-delivery-submit]")!;
+    const errorEl = root.querySelector<HTMLElement>("[data-delivery-error]")!;
+
+    fetchJson<{ deliveryPoints: DeliveryPoint[] }>("/api/puntos-entrega")
+      .then(({ deliveryPoints }) => {
+        if (deliveryPoints.length === 0) {
+          select.innerHTML = `<option value="">No hay puntos de entrega disponibles</option>`;
+          return;
+        }
+        select.innerHTML = deliveryPoints
+          .map((p) => {
+            const costLabel = p.costCents > 0 ? `S/ ${(p.costCents / 100).toFixed(2)}` : "sin costo";
+            return `<option value="${p.id}">${p.name}${p.zone ? ` — ${p.zone}` : ""} (${costLabel})</option>`;
+          })
+          .join("");
+        select.disabled = false;
+      })
+      .catch(() => {
+        select.innerHTML = `<option value="">No se pudieron cargar los puntos de entrega</option>`;
+      });
+
+    submitBtn.addEventListener("click", async () => {
+      errorEl.classList.add("hidden");
+
+      const method = root.querySelector<HTMLInputElement>('input[name="deliveryMethod"]:checked')?.value;
+
+      if (method === "contraentrega" && !select.value) {
+        errorEl.textContent = "Elige un punto de entrega.";
+        errorEl.classList.remove("hidden");
+        return;
+      }
+
+      const payload =
+        method === "contraentrega"
+          ? { deliveryMethod: "contraentrega", deliveryPointId: Number(select.value) }
+          : { deliveryMethod: "delivery_propio" };
+
+      submitBtn.disabled = true;
+      try {
+        await fetchJson(`/api/pedidos/${publicId}/entrega`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        window.location.reload();
+      } catch (err) {
+        errorEl.textContent = err instanceof Error ? err.message : "No se pudo registrar la entrega.";
+        errorEl.classList.remove("hidden");
+        submitBtn.disabled = false;
+      }
+    });
+  }
+</script>

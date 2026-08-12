@@ -1,0 +1,252 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { getSessionUser, isAdminEmail } from "../../../lib/auth";
+import { fetchJson, internalApiUrl } from "../../../lib/http/fetchJson";
+import { formatSoles } from "../../../lib/orders/pricing";
+
+const session = getSessionUser(Astro.request);
+if (!session) {
+  return Astro.redirect("/cuenta/acceso?redirect=" + encodeURIComponent("/admin/puntos-entrega"));
+}
+if (!isAdminEmail(session.email)) {
+  return Astro.rewrite("/404");
+}
+
+interface DeliveryPoint {
+  id: number;
+  name: string;
+  zone: string | null;
+  costCents: number;
+  active: boolean;
+  sortOrder: number;
+}
+
+const { deliveryPoints } = await fetchJson<{ deliveryPoints: DeliveryPoint[] }>(
+  internalApiUrl("/api/admin/puntos-entrega"),
+  { headers: { cookie: Astro.request.headers.get("cookie") ?? "" } },
+);
+---
+
+<AdminLayout title="Puntos de entrega">
+  <h1 class="font-display text-2xl font-semibold text-charcoal">Puntos de entrega</h1>
+  <p class="mt-1 text-sm text-charcoal/60">Estaciones de contraentrega y su costo — se usan en el paso de "elegir entrega" del checkout.</p>
+
+  <form
+    id="new-point-form"
+    class="mt-6 grid grid-cols-1 gap-3 rounded-lg border border-charcoal/10 bg-white p-4 sm:grid-cols-[1.5fr_1fr_140px_100px_auto] sm:items-end"
+  >
+    <label class="block">
+      <span class="block font-body text-xs font-semibold text-charcoal/60">Nombre</span>
+      <input
+        type="text"
+        name="name"
+        placeholder="Estación Angamos"
+        required
+        class="mt-1 w-full rounded-md border border-charcoal/20 px-3 py-2 text-sm"
+      />
+    </label>
+    <label class="block">
+      <span class="block font-body text-xs font-semibold text-charcoal/60">Zona</span>
+      <input type="text" name="zone" placeholder="Línea 1" class="mt-1 w-full rounded-md border border-charcoal/20 px-3 py-2 text-sm" />
+    </label>
+    <label class="block">
+      <span class="block font-body text-xs font-semibold text-charcoal/60">Costo (S/)</span>
+      <input
+        type="number"
+        name="costSoles"
+        min="0"
+        step="0.01"
+        value="0"
+        required
+        class="mt-1 w-full rounded-md border border-charcoal/20 px-3 py-2 text-sm"
+      />
+    </label>
+    <label class="block">
+      <span class="block font-body text-xs font-semibold text-charcoal/60">Orden</span>
+      <input type="number" name="sortOrder" min="0" step="1" value="0" class="mt-1 w-full rounded-md border border-charcoal/20 px-3 py-2 text-sm" />
+    </label>
+    <button
+      type="submit"
+      class="rounded-full bg-pink-strong px-4 py-2.5 font-body text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-charcoal hover:shadow-md"
+    >
+      Agregar
+    </button>
+  </form>
+  <p id="new-point-error" class="mt-2 hidden text-sm text-red-600" />
+  <p id="table-action-error" class="mt-2 hidden rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600" />
+
+  <div class="mt-6 overflow-x-auto rounded-lg border border-charcoal/10 bg-white">
+    <table class="w-full text-left text-sm">
+      <thead class="border-b border-charcoal/10 text-xs tracking-wide text-charcoal/50 uppercase">
+        <tr>
+          <th class="px-4 py-3">Nombre</th>
+          <th class="px-4 py-3">Zona</th>
+          <th class="px-4 py-3">Costo</th>
+          <th class="px-4 py-3">Estado</th>
+          <th class="px-4 py-3 text-right">Acciones</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-charcoal/5">
+        {
+          deliveryPoints.length === 0 && (
+            <tr>
+              <td colspan="5" class="px-4 py-8 text-center text-charcoal/50">
+                Todavía no hay puntos de entrega registrados.
+              </td>
+            </tr>
+          )
+        }
+        {
+          deliveryPoints.map((point) => (
+            <tr data-point-row data-id={point.id} data-active={point.active ? "1" : "0"} class={!point.active ? "opacity-50" : ""}>
+              <td class="px-4 py-3">
+                <span data-view="name">{point.name}</span>
+                <input data-edit="name" type="text" value={point.name} class="hidden w-full rounded-md border border-charcoal/20 px-2 py-1 text-sm" />
+              </td>
+              <td class="px-4 py-3">
+                <span data-view="zone">{point.zone ?? "—"}</span>
+                <input data-edit="zone" type="text" value={point.zone ?? ""} class="hidden w-full rounded-md border border-charcoal/20 px-2 py-1 text-sm" />
+              </td>
+              <td class="px-4 py-3">
+                <span data-view="cost">{formatSoles(point.costCents)}</span>
+                <input
+                  data-edit="costSoles"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={(point.costCents / 100).toFixed(2)}
+                  class="hidden w-24 rounded-md border border-charcoal/20 px-2 py-1 text-sm"
+                />
+              </td>
+              <td class="px-4 py-3 text-charcoal/70">{point.active ? "Activo" : "Inactivo"}</td>
+              <td class="px-4 py-3 text-right">
+                <div data-view-actions class="flex justify-end gap-3">
+                  <button type="button" data-action="edit" class="font-body text-xs font-medium text-pink-strong hover:underline">
+                    Editar
+                  </button>
+                  <button type="button" data-action="toggle-active" class="font-body text-xs font-medium text-charcoal/60 hover:underline">
+                    {point.active ? "Desactivar" : "Reactivar"}
+                  </button>
+                </div>
+                <div data-edit-actions class="hidden justify-end gap-3">
+                  <button type="button" data-action="save" class="font-body text-xs font-medium text-pink-strong hover:underline">
+                    Guardar
+                  </button>
+                  <button type="button" data-action="cancel" class="font-body text-xs font-medium text-charcoal/60 hover:underline">
+                    Cancelar
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+</AdminLayout>
+
+<script>
+  import { fetchJson } from "../../../lib/http/fetchJson";
+
+  const newForm = document.getElementById("new-point-form") as HTMLFormElement | null;
+  const newError = document.getElementById("new-point-error");
+
+  newForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    newError?.classList.add("hidden");
+
+    const formData = new FormData(newForm);
+    const zone = String(formData.get("zone") ?? "").trim();
+    const payload = {
+      name: formData.get("name"),
+      ...(zone ? { zone } : {}),
+      costCents: Math.round(Number(formData.get("costSoles") || 0) * 100),
+      sortOrder: Number(formData.get("sortOrder") || 0),
+    };
+
+    try {
+      await fetchJson("/api/admin/puntos-entrega", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      window.location.reload();
+    } catch (err) {
+      if (newError) {
+        newError.textContent = err instanceof Error ? err.message : "No se pudo crear el punto.";
+        newError.classList.remove("hidden");
+      }
+    }
+  });
+
+  const tableError = document.getElementById("table-action-error");
+  function showTableError(message: string) {
+    if (!tableError) return;
+    tableError.textContent = message;
+    tableError.classList.remove("hidden");
+  }
+
+  document.querySelectorAll<HTMLTableRowElement>("[data-point-row]").forEach((row) => {
+    const id = row.dataset.id;
+    const pointName = row.querySelector<HTMLElement>('[data-view="name"]')?.textContent ?? "este punto";
+    const viewActions = row.querySelector<HTMLElement>("[data-view-actions]");
+    const editActions = row.querySelector<HTMLElement>("[data-edit-actions]");
+    const viewFieldMap: Record<string, string> = { name: "name", zone: "zone", costSoles: "cost" };
+
+    function setEditMode(on: boolean) {
+      for (const [editField, viewField] of Object.entries(viewFieldMap)) {
+        row.querySelector(`[data-view="${viewField}"]`)?.classList.toggle("hidden", on);
+        row.querySelector(`[data-edit="${editField}"]`)?.classList.toggle("hidden", !on);
+      }
+      viewActions?.classList.toggle("hidden", on);
+      viewActions?.classList.toggle("flex", !on);
+      editActions?.classList.toggle("hidden", !on);
+      editActions?.classList.toggle("flex", on);
+    }
+
+    row.querySelector('[data-action="edit"]')?.addEventListener("click", () => setEditMode(true));
+    row.querySelector('[data-action="cancel"]')?.addEventListener("click", () => setEditMode(false));
+
+    row.querySelector('[data-action="save"]')?.addEventListener("click", async () => {
+      const nameInput = row.querySelector<HTMLInputElement>('[data-edit="name"]');
+      const zoneInput = row.querySelector<HTMLInputElement>('[data-edit="zone"]');
+      const costInput = row.querySelector<HTMLInputElement>('[data-edit="costSoles"]');
+
+      const payload = {
+        name: nameInput?.value,
+        zone: zoneInput?.value || null,
+        costCents: costInput ? Math.round(Number(costInput.value) * 100) : undefined,
+      };
+
+      try {
+        await fetchJson(`/api/admin/puntos-entrega/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        window.location.reload();
+      } catch (err) {
+        showTableError(err instanceof Error ? err.message : "No se pudo guardar.");
+      }
+    });
+
+    row.querySelector('[data-action="toggle-active"]')?.addEventListener("click", async () => {
+      const isActive = row.dataset.active === "1";
+      if (isActive && !confirm(`¿Desactivar "${pointName}"?`)) return;
+      try {
+        if (isActive) {
+          await fetchJson(`/api/admin/puntos-entrega/${id}`, { method: "DELETE" });
+        } else {
+          await fetchJson(`/api/admin/puntos-entrega/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ active: true }),
+          });
+        }
+        window.location.reload();
+      } catch (err) {
+        showTableError(err instanceof Error ? err.message : "No se pudo actualizar el estado.");
+      }
+    });
+  });
+</script>

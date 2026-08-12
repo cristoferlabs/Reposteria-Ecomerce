@@ -1,0 +1,37 @@
+---
+import { formatSoles } from "../../lib/orders/pricing";
+
+interface Item {
+  quantity: number;
+  unitPriceCents: number;
+  customizationNotes: string | null;
+  product: { name: string; imageUrl: string };
+  variant: { name: string } | null;
+}
+
+interface Props {
+  items: Item[];
+}
+
+const { items } = Astro.props;
+---
+
+<ul class="divide-y divide-charcoal/10 border-y border-charcoal/10">
+  {
+    items.map((item) => (
+      <li class="flex items-center gap-4 py-4">
+        <div class="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-neutral-100">
+          <img src={item.product.imageUrl} alt={item.product.name} class="h-full w-full object-cover" />
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="truncate font-body text-sm font-medium text-charcoal">
+            {item.quantity} × {item.product.name}
+          </p>
+          {item.variant && <p class="text-xs text-charcoal/60">{item.variant.name}</p>}
+          {item.customizationNotes && <p class="text-xs text-charcoal/50 italic">"{item.customizationNotes}"</p>}
+        </div>
+        <p class="shrink-0 text-sm font-semibold text-charcoal">{formatSoles(item.unitPriceCents * item.quantity)}</p>
+      </li>
+    ))
+  }
+</ul>

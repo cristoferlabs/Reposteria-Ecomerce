@@ -1,0 +1,121 @@
+---
+import { inArray } from "drizzle-orm";
+import "../styles/global.css";
+import AnnouncementBar from "../components/layout/AnnouncementBar.astro";
+import Navbar from "../components/layout/Navbar.astro";
+import Footer from "../components/layout/Footer.astro";
+import QuickViewModal from "../components/catalog/QuickViewModal.astro";
+import CartDrawer from "../components/cart/CartDrawer.astro";
+import OrdersDrawer from "../components/orders/OrdersDrawer.astro";
+import OnboardingTour from "../components/shared/OnboardingTour.astro";
+import { db } from "../db/client";
+import { products } from "../db/schema";
+import { getSessionUser } from "../lib/auth";
+import { CART_COOKIE_NAME, parseCart } from "../lib/cart/cookieCart";
+import { calculateSubtotalCents, resolveUnitPriceCents } from "../lib/orders/pricing";
+
+interface Props {
+  title: string;
+  description?: string;
+  cartCount?: number;
+}
+
+const rawCartItems = parseCart(Astro.cookies.get(CART_COOKIE_NAME)?.value);
+
+// El drawer necesita nombre/imagen/precio para mostrarse en cada página, no
+// solo el conteo — el carrito típico tiene pocos ítems, así que este query
+// extra es despreciable frente al resto de queries que ya hace cada página.
+const cartProductIds = [...new Set(rawCartItems.map((item) => item.productId))];
+const cartProductRows = cartProductIds.length
+  ? await db.query.products.findMany({
+      where: inArray(products.id, cartProductIds),
+      with: { variants: true },
+    })
+  : [];
+const cartProductById = new Map(cartProductRows.map((p) => [p.id, p]));
+
+const cartDrawerLines = rawCartItems
+  .map((item) => {
+    const product = cartProductById.get(item.productId);
+    if (!product) return null;
+    const variant = item.variantId ? (product.variants.find((v) => v.id === item.variantId) ?? null) : null;
+    const unitPriceCents = resolveUnitPriceCents(product, variant);
+    return {
+      productId: item.productId,
+      variantId: item.variantId,
+      quantity: item.quantity,
+      product: {
+        name: product.name,
+        imageUrl: product.imageUrl,
+        slug: product.slug,
+        leadTimeDays: product.leadTimeDays,
+        allowsUrgent: product.allowsUrgent,
+      },
+      variant: variant ? { name: variant.name } : null,
+      unitPriceCents,
+      lineTotalCents: unitPriceCents * item.quantity,
+    };
+  })
+  .filter((line): line is NonNullable<typeof line> => line !== null);
+
+const cartSubtotalCents = calculateSubtotalCents(
+  cartDrawerLines.map((l) => ({ unitPriceCents: l.unitPriceCents, quantity: l.quantity })),
+);
+
+const cartFromCookie = rawCartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+// Datos que necesita el "paso 2" del drawer (fecha/urgente/notas) — misma
+// fórmula que ya usaba pedido/personalizar.astro para su formulario.
+const cartMaxLeadTimeDays = cartDrawerLines.length
+  ? Math.max(...cartDrawerLines.map((l) => l.product.leadTimeDays))
+  : 2;
+const cartAllowsUrgentAny = cartDrawerLines.length > 0 && cartDrawerLines.every((l) => l.product.allowsUrgent);
+const cartMinDate = new Date();
+cartMinDate.setDate(cartMinDate.getDate() + cartMaxLeadTimeDays);
+const cartMinDateStr = cartMinDate.toISOString().slice(0, 10);
+
+const isLoggedIn = Boolean(getSessionUser(Astro.request));
+
+const { title, description = "Repostería artesanal hecha a pedido.", cartCount = cartFromCookie } = Astro.props;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="description" content={description} />
+    <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
+
+    <!-- Work Sans para todo el sitio (títulos y cuerpo) — los tokens
+         --font-display/--font-body en global.css no cargan nada por sí
+         solos, esto es lo que realmente trae el archivo de fuente. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700;800&display=swap"
+    />
+
+    <title>{title}</title>
+  </head>
+  <body class="flex min-h-screen flex-col">
+    <AnnouncementBar />
+    <Navbar cartCount={cartCount} />
+    <div class="flex-1">
+      <slot />
+    </div>
+    <Footer />
+    <QuickViewModal />
+    <CartDrawer
+      lines={cartDrawerLines}
+      subtotalCents={cartSubtotalCents}
+      isLoggedIn={isLoggedIn}
+      minDateStr={cartMinDateStr}
+      allowsUrgentAny={cartAllowsUrgentAny}
+    />
+    <OnboardingTour />
+    {isLoggedIn && <OrdersDrawer />}
+  </body>
+</html>

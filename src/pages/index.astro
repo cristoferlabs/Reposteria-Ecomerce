@@ -1,0 +1,33 @@
+---
+import { eq } from "drizzle-orm";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Hero from "../components/home/Hero.astro";
+import CategoryTiles from "../components/home/CategoryTiles.astro";
+import FeaturedGrid from "../components/home/FeaturedGrid.astro";
+import ReviewsCarousel from "../components/home/ReviewsCarousel.astro";
+import { db } from "../db/client";
+import { products } from "../db/schema";
+import { formatSoles } from "../lib/orders/pricing";
+import { siteConfig } from "../config/site";
+
+const featuredProducts = await db.query.products.findMany({
+  where: eq(products.featured, true),
+  orderBy: (products, { asc }) => [asc(products.name)],
+  with: { variants: true },
+});
+
+const featured = featuredProducts.map((product) => ({
+  name: product.name,
+  priceLabel: formatSoles(product.basePriceCents),
+  image: product.imageUrl,
+  href: `/producto/${product.slug}`,
+  hasVariants: product.variants.length > 0,
+}));
+---
+
+<BaseLayout title={`${siteConfig.name} — ${siteConfig.tagline}`}>
+  <Hero />
+  <CategoryTiles />
+  {featured.length > 0 && <FeaturedGrid title="Destacados" items={featured} />}
+  <ReviewsCarousel />
+</BaseLayout>
