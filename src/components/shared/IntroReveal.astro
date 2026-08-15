@@ -1,0 +1,120 @@
+---
+// Intro animada del home: logo + tagline con fade/scale en CSS (sin Lottie),
+// una sola vez por sesión de navegador (sessionStorage, no localStorage, así
+// se repite si el cliente vuelve otro día). Se monta en BaseLayout solo
+// cuando transparentNavbar es true, o sea solo en el home.
+import { siteConfig } from "../../config/site";
+
+// El logo "oficial" (siteConfig.logoUrl, usado en Navbar/Footer) pesa ~1MB —
+// bien para esos contextos chicos, pero acá compite en la carrera de LCP con
+// la foto del hero. logo_arlet_intro.webp es una copia recortada a 360px y
+// comprimida (~23KB) generada con sharp solo para este componente.
+const INTRO_LOGO = "/assets/brand/logo_arlet_intro.webp";
+---
+
+<div
+  id="intro-reveal"
+  class="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-cream"
+  role="dialog"
+  aria-label="Bienvenida"
+>
+  <img src={INTRO_LOGO} alt={siteConfig.name} width="180" height="135" fetchpriority="low" class="w-36 sm:w-44" data-intro-logo />
+  <p class="mt-4 font-body text-sm text-charcoal/70" data-intro-tagline>
+    {siteConfig.tagline}
+  </p>
+  <button type="button" class="intro-skip" data-intro-skip> Saltar </button>
+</div>
+
+<style>
+  #intro-reveal {
+    opacity: 1;
+    transition: opacity 0.4s ease;
+  }
+
+  #intro-reveal.intro-hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  [data-intro-logo] {
+    opacity: 0;
+    transform: scale(0.85);
+    animation: intro-logo-in 900ms ease-out 150ms forwards;
+  }
+
+  [data-intro-tagline] {
+    opacity: 0;
+    transform: translateY(8px);
+    animation: intro-tagline-in 700ms ease-out 600ms forwards;
+  }
+
+  @keyframes intro-logo-in {
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes intro-tagline-in {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .intro-skip {
+    position: absolute;
+    right: 2rem;
+    bottom: 2rem;
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--color-charcoal) 60%, transparent);
+    transition: color 0.2s ease;
+  }
+
+  .intro-skip:hover {
+    color: var(--color-charcoal);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-intro-logo],
+    [data-intro-tagline] {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+  }
+</style>
+
+<script is:inline>
+  (function () {
+    var el = document.getElementById("intro-reveal");
+    if (!el) return;
+
+    var prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var alreadyShown = sessionStorage.getItem("arlet-intro-shown");
+
+    function hideIntro() {
+      el.classList.add("intro-hidden");
+      document.body.style.overflow = "";
+      document.dispatchEvent(new Event("intro-hidden"));
+    }
+
+    if (alreadyShown || prefersReducedMotion) {
+      hideIntro();
+      sessionStorage.setItem("arlet-intro-shown", "1");
+      return;
+    }
+
+    sessionStorage.setItem("arlet-intro-shown", "1");
+    document.body.style.overflow = "hidden";
+
+    var skipButton = el.querySelector("[data-intro-skip]");
+    if (skipButton) skipButton.addEventListener("click", hideIntro);
+
+    setTimeout(hideIntro, 1800);
+  })();
+</script>

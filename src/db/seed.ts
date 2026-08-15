@@ -41,7 +41,8 @@ async function seed() {
       categoryId: tortas,
       slug: "torta-chocolate",
       name: "Torta de Chocolate",
-      description: "Bizcocho húmedo de chocolate con ganache y relleno a elección.",
+      description:
+        "Bizcocho húmedo de cacao, ganache brillante y fresas frescas. Pensada para celebrar: llega lista para servir el día que elegís.",
       basePriceCents: 8000,
       imageUrl: productImage("torta-chocolate.webp"),
       leadTimeDays: 2,
@@ -50,22 +51,12 @@ async function seed() {
     },
     {
       categoryId: tortas,
-      slug: "cheesecake",
-      name: "Cheesecake",
-      description: "Cheesecake clásico horneado, base de galleta y cobertura ligera.",
-      basePriceCents: 7000,
-      imageUrl: productImage("cheesecake.webp"),
-      leadTimeDays: 2,
-      allowsUrgent: true,
-      featured: true,
-    },
-    {
-      categoryId: tortas,
       slug: "cheesecake-ciruela",
       name: "Cheesecake de Ciruela",
-      description: "Cheesecake horneado cubierto con compota de ciruela artesanal.",
+      description:
+        "La misma base cremosa del cheesecake, coronada con compota artesanal de ciruela. Contraste dulce-ácido; se pide con anticipación.",
       basePriceCents: 7500,
-      imageUrl: productImage("chescakeDeCiruela.png"),
+      imageUrl: productImage("cheesecake-ciruela.webp"),
       leadTimeDays: 3,
       // Lleva compota de ciruela preparada aparte, no admite pedidos urgentes.
       allowsUrgent: false,
@@ -74,7 +65,8 @@ async function seed() {
       categoryId: tortas,
       slug: "pie-moras",
       name: "Pie de Moras",
-      description: "Pie artesanal relleno de moras, masa quebrada horneada.",
+      description:
+        "Masa quebrada dorada y relleno abundante de moras. Corte limpio, borde crocante y sabor a fruta real.",
       basePriceCents: 6500,
       imageUrl: productImage("pie-moras.webp"),
       leadTimeDays: 2,
@@ -85,7 +77,8 @@ async function seed() {
       categoryId: tortas,
       slug: "pionono-oreo",
       name: "Pionono de Oreo",
-      description: "Bizcocho enrollado relleno de crema y trozos de galleta Oreo.",
+      description:
+        "Bizcocho de cacao enrollado con crema suave y trozos de Oreo. Fácil de porcionar; ideal para meriendas o pedidos express.",
       basePriceCents: 4500,
       imageUrl: productImage("pionono-oreo.webp"),
       leadTimeDays: 1,
@@ -93,29 +86,10 @@ async function seed() {
     },
     {
       categoryId: postres,
-      slug: "leche-asada",
-      name: "Leche Asada",
-      description: "Postre criollo horneado de leche y huevo, porción individual.",
-      basePriceCents: 1500,
-      imageUrl: productImage("leche-asada.webp"),
-      leadTimeDays: 1,
-      allowsUrgent: true,
-    },
-    {
-      categoryId: postres,
-      slug: "mousse-cafe",
-      name: "Mousse de Café",
-      description: "Mousse cremoso de café en porción individual.",
-      basePriceCents: 1500,
-      imageUrl: productImage("mousse-cafe.webp"),
-      leadTimeDays: 1,
-      allowsUrgent: true,
-    },
-    {
-      categoryId: postres,
       slug: "quesillo",
       name: "Quesillo",
-      description: "Quesillo casero bañado en su propio caramelo, porción individual.",
+      description:
+        "Clásico casero: leche, huevos y caramelo propio. Porción individual, textura firme y brillo de caramelo.",
       basePriceCents: 1200,
       imageUrl: productImage("quesillo.webp"),
       leadTimeDays: 1,
@@ -132,15 +106,6 @@ async function seed() {
       name: "1.5 kg",
       size: "1.5kg",
       priceDeltaCents: 3500,
-      sortOrder: 1,
-    },
-
-    { productId: productIdBySlug.get("cheesecake")!, name: "Chico", size: "18cm", priceDeltaCents: 0, sortOrder: 0 },
-    {
-      productId: productIdBySlug.get("cheesecake")!,
-      name: "Grande",
-      size: "24cm",
-      priceDeltaCents: 2500,
       sortOrder: 1,
     },
   ]);

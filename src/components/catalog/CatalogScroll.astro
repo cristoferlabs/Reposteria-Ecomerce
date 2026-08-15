@@ -1,0 +1,558 @@
+---
+// Catálogo estilo Helias: grilla vertical, ola de color en movimiento,
+// reveals al scrollear (más intensos al bajar), flip de materiales, carrito.
+import type { CategoryAccent } from "../../config/site";
+
+interface Variant {
+  id: number;
+  name: string;
+  priceDeltaCents: number;
+}
+
+interface CatalogItem {
+  productId: number;
+  slug: string;
+  name: string;
+  priceLabel: string;
+  basePriceCents: number;
+  image: string;
+  href: string;
+  description: string | null;
+  includes: string[];
+  materials: string[];
+  variants: Variant[];
+  leadTimeDays: number;
+  allowsUrgent: boolean;
+  hasVariants: boolean;
+}
+
+interface Props {
+  items: CatalogItem[];
+  accent?: CategoryAccent;
+  categoryName: string;
+  tagline: string;
+}
+
+const { items, accent = "pink", categoryName, tagline } = Astro.props;
+
+const PANEL: Record<CategoryAccent, string> = {
+  pink: "#e4a9bd",
+  gold: "#d9c48a",
+};
+const panelColor = PANEL[accent];
+
+/** Esquina superior izquierda (misma lógica que el home) */
+const WAVE_A =
+  "M0,0 L0.55,0 C0.46,0.12 0.34,0.26 0.22,0.4 C0.11,0.52 0.04,0.36 0,0.58 L0,0 Z";
+const WAVE_B =
+  "M0,0 L0.62,0 C0.5,0.16 0.38,0.3 0.24,0.46 C0.12,0.58 0.05,0.4 0,0.64 L0,0 Z";
+
+const MOBILE_A =
+  "M0,0 L0.78,0 C0.62,0.16 0.48,0.3 0.32,0.44 C0.18,0.56 0.08,0.36 0,0.58 L0,0 Z";
+const MOBILE_B =
+  "M0,0 L0.72,0 C0.58,0.2 0.42,0.34 0.28,0.5 C0.14,0.62 0.06,0.4 0,0.64 L0,0 Z";
+
+function quickViewPayload(item: CatalogItem) {
+  return JSON.stringify({
+    productId: item.productId,
+    name: item.name,
+    priceLabel: item.priceLabel,
+    basePriceCents: item.basePriceCents,
+    image: item.image,
+    href: item.href,
+    description: item.description,
+    variants: item.variants,
+    leadTimeDays: item.leadTimeDays,
+    allowsUrgent: item.allowsUrgent,
+  });
+}
+---
+
+<section
+  class="catalog-page relative bg-white"
+  data-catalog-scroll
+  data-wave-a={WAVE_A}
+  data-wave-b={WAVE_B}
+  data-mobile-a={MOBILE_A}
+  data-mobile-b={MOBILE_B}
+  data-panel-color={panelColor}
+>
+  <!-- Grilla Helias -->
+  <div
+    class="pointer-events-none fixed inset-0 z-0"
+    aria-hidden="true"
+    style="background-image: repeating-linear-gradient(to right, rgba(44,38,35,0.06) 0, rgba(44,38,35,0.06) 1px, transparent 1px, transparent 20%);"
+  />
+
+  <!-- Mancha de color detrás del contenido (z bajo); las fotos usan multiply para no taparla -->
+  <svg
+    class="catalog-split pointer-events-none fixed inset-0 z-0 h-full w-full"
+    viewBox="0 0 1 1"
+    preserveAspectRatio="none"
+    aria-hidden="true"
+  >
+    <defs>
+      <clipPath id="catalog-wave-clip" clipPathUnits="objectBoundingBox">
+        <path data-catalog-wave d={MOBILE_A} />
+      </clipPath>
+    </defs>
+    <rect data-catalog-panel width="1" height="1" fill={panelColor} clip-path="url(#catalog-wave-clip)" opacity="0.55" />
+  </svg>
+
+  <div class="relative z-10">
+    <header class="catalog-hero mx-auto max-w-[1400px] px-6 pt-16 pb-20 md:px-12 md:pt-24 md:pb-28" data-catalog-hero>
+      <nav class="font-body text-[0.7rem] font-medium tracking-[0.18em] uppercase">
+        <a href="/" class="text-charcoal hover:text-pink-strong">Inicio</a>
+        <span class="mx-2 text-charcoal/35">/</span>
+        <span class="text-charcoal/45">{categoryName}</span>
+      </nav>
+      <h1
+        class="catalog-hero__title mt-8 font-hero text-[clamp(3.25rem,10vw,7.5rem)] leading-[0.9] font-semibold tracking-tight text-charcoal"
+        data-reveal-bit
+      >
+        {categoryName}
+      </h1>
+      <p
+        class="catalog-hero__tag mt-8 max-w-xl font-[family-name:var(--font-mono)] text-sm leading-relaxed text-charcoal/70 sm:text-[0.95rem]"
+        data-reveal-bit
+      >
+        {tagline}
+      </p>
+      <p class="mt-4 font-body text-xs tracking-[0.14em] text-charcoal/40 uppercase" data-reveal-bit>
+        {items.length} producto{items.length === 1 ? "" : "s"} · volteá la imagen para ver materiales
+      </p>
+    </header>
+
+    {
+      items.length === 0 ? (
+        <div class="mx-auto max-w-5xl px-6 py-20 text-center">
+          <p class="font-body text-charcoal/60">No hay productos activos en esta categoría.</p>
+          <a href="/" class="mt-4 inline-block font-body text-sm font-medium text-pink-strong hover:text-charcoal">
+            Volver al inicio
+          </a>
+        </div>
+      ) : (
+        <div class="catalog-list mx-auto max-w-[1400px]">
+          {items.map((item, i) => (
+            <article
+              class:list={["catalog-row", i % 2 === 1 && "catalog-row--alt"]}
+              data-catalog-row
+              data-row-index={i}
+            >
+              <div class="catalog-row__media" data-catalog-media>
+                <button
+                  type="button"
+                  class="catalog-flip"
+                  aria-label={`Ver materiales de ${item.name}`}
+                  data-catalog-flip
+                >
+                  <div class="catalog-flip__inner">
+                    <div class="catalog-flip__face catalog-flip__front">
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        loading={i < 2 ? "eager" : "lazy"}
+                        class="catalog-flip__img"
+                        data-catalog-photo
+                      />
+                    </div>
+                    <div class="catalog-flip__face catalog-flip__back">
+                      <p class="font-body text-[0.65rem] font-semibold tracking-[0.18em] text-cream/60 uppercase">
+                        Materiales
+                      </p>
+                      <ul class="mt-5 space-y-2.5">
+                        {item.materials.map((m) => (
+                          <li class="font-hero text-2xl font-medium text-cream sm:text-3xl">{m}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  class="catalog-bag"
+                  aria-label={`Agregar ${item.name} al carrito`}
+                  data-quickview-payload={quickViewPayload(item)}
+                  data-catalog-bag
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-4 w-4">
+                    <path d="M6 8h12l-1 12H7L6 8Z" stroke-linejoin="round" />
+                    <path d="M9 8a3 3 0 0 1 6 0" stroke-linecap="round" />
+                  </svg>
+                </button>
+              </div>
+
+              <div class="catalog-row__copy" data-catalog-copy>
+                <p
+                  class="font-body text-[0.65rem] font-semibold tracking-[0.2em] text-charcoal/40 uppercase"
+                  data-reveal-bit
+                >
+                  {String(i + 1).padStart(2, "0")} / {String(items.length).padStart(2, "0")}
+                </p>
+                <h2
+                  class="mt-3 font-hero text-[clamp(2.25rem,5vw,4.25rem)] leading-[0.95] font-semibold tracking-tight text-charcoal"
+                  data-reveal-bit
+                >
+                  {item.name}
+                </h2>
+                <p class="mt-3 font-body text-lg font-medium text-pink-strong" data-reveal-bit>
+                  {item.priceLabel}
+                </p>
+                {item.description && (
+                  <p
+                    class="mt-6 max-w-md font-[family-name:var(--font-mono)] text-sm leading-relaxed text-charcoal/70"
+                    data-reveal-bit
+                  >
+                    {item.description}
+                  </p>
+                )}
+                {item.includes.length > 0 && (
+                  <div class="mt-6" data-reveal-bit>
+                    <p class="font-body text-[0.65rem] font-semibold tracking-[0.16em] text-charcoal/40 uppercase">
+                      Qué te llevás
+                    </p>
+                    <ul class="mt-3 space-y-1.5">
+                      {item.includes.map((line) => (
+                        <li class="font-[family-name:var(--font-mono)] text-sm text-charcoal/75">— {line}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <div class="mt-8 flex flex-wrap items-center gap-3" data-reveal-bit>
+                  <button
+                    type="button"
+                    class="catalog-add-btn font-body text-xs font-semibold tracking-[0.14em] uppercase"
+                    data-quickview-payload={quickViewPayload(item)}
+                  >
+                    {item.hasVariants ? "Elegir y agregar" : "Agregar al carrito"}
+                  </button>
+                  <a
+                    href={item.href}
+                    class="inline-flex items-center border border-charcoal/20 px-5 py-3 font-body text-xs font-medium tracking-[0.12em] text-charcoal uppercase transition-colors hover:border-charcoal hover:bg-charcoal hover:text-white"
+                  >
+                    Ver detalle
+                  </a>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )
+    }
+
+    <div class="h-24 md:h-32" aria-hidden="true" />
+  </div>
+</section>
+
+<style>
+  .catalog-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    align-items: center;
+    padding: 4rem 1.5rem;
+    position: relative;
+  }
+
+  @media (min-width: 900px) {
+    .catalog-row {
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 3rem;
+      padding: 5.5rem 3rem;
+      min-height: 85vh;
+    }
+
+    .catalog-row--alt .catalog-row__media {
+      order: 2;
+    }
+
+    .catalog-row--alt .catalog-row__copy {
+      order: 1;
+      padding-left: 2rem;
+    }
+  }
+
+  .catalog-row__media {
+    position: relative;
+  }
+
+  .catalog-flip {
+    perspective: 1600px;
+    width: 100%;
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .catalog-flip__inner {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    transform-style: preserve-3d;
+    transition: transform 0.8s cubic-bezier(0.4, 0.05, 0.2, 1);
+  }
+
+  .catalog-flip:hover .catalog-flip__inner,
+  .catalog-flip:focus-visible .catalog-flip__inner,
+  .catalog-flip.is-flipped .catalog-flip__inner {
+    transform: rotateY(180deg);
+  }
+
+  .catalog-flip__face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  .catalog-flip__front {
+    background: transparent;
+  }
+
+  /* JPG con fondo blanco: multiply hace “invisible” el blanco sobre la mancha de color */
+  .catalog-flip__img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 1.75rem;
+    display: block;
+    background: transparent;
+    mix-blend-mode: multiply;
+  }
+
+  @supports not (mix-blend-mode: multiply) {
+    .catalog-flip__img {
+      mix-blend-mode: normal;
+    }
+  }
+
+  .catalog-flip__back {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2.25rem;
+    background: var(--color-charcoal);
+    transform: rotateY(180deg);
+    mix-blend-mode: normal;
+  }
+
+  .catalog-bag {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    z-index: 2;
+    isolation: isolate;
+    display: flex;
+    height: 2.75rem;
+    width: 2.75rem;
+    translate: -40% -50%;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--color-charcoal);
+    box-shadow: 0 4px 18px rgba(44, 38, 35, 0.1);
+    cursor: pointer;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease,
+      transform 0.2s ease;
+  }
+
+  .catalog-bag:hover {
+    background: var(--color-charcoal);
+    color: #fff;
+    transform: scale(1.05);
+  }
+
+  .catalog-add-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-charcoal);
+    color: #fff;
+    padding: 0.85rem 1.6rem;
+    transition: background-color 0.2s ease;
+  }
+
+  .catalog-add-btn:hover {
+    background: var(--color-pink-strong);
+  }
+
+  @media (max-width: 899px) {
+    .catalog-bag {
+      translate: 0 -50%;
+      left: auto;
+      right: 0.75rem;
+    }
+  }
+</style>
+
+<script>
+  import gsap from "gsap";
+
+  function initCatalogScroll(root: HTMLElement) {
+    if (root.dataset.catalogInit === "true") return;
+    root.dataset.catalogInit = "true";
+
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const wave = root.querySelector<SVGPathElement>("[data-catalog-wave]");
+    const panel = root.querySelector<SVGRectElement>("[data-catalog-panel]");
+    const waveA = root.dataset.waveA ?? "";
+    const waveB = root.dataset.waveB ?? "";
+    const mobileA = root.dataset.mobileA ?? "";
+    const mobileB = root.dataset.mobileB ?? "";
+    const panelColor = root.dataset.panelColor ?? "#e4a9bd";
+    const desktopMq = window.matchMedia("(min-width: 900px)");
+
+    function wavePair() {
+      return desktopMq.matches ? { a: waveA, b: waveB } : { a: mobileA, b: mobileB };
+    }
+
+    // Ola continua (forma distinta en móvil vs desktop)
+    let waveTween: gsap.core.Tween | null = null;
+    function startWaveLoop() {
+      if (!wave || prefersReduced) return;
+      waveTween?.kill();
+      const { a, b } = wavePair();
+      if (!a || !b) return;
+      wave.setAttribute("d", a);
+      waveTween = gsap.to(wave, {
+        attr: { d: b },
+        duration: 6,
+        ease: "sine.inOut",
+        yoyo: true,
+        repeat: -1,
+      });
+    }
+    startWaveLoop();
+    desktopMq.addEventListener("change", startWaveLoop);
+
+    // Entrada del hero
+    const heroBits = root.querySelectorAll<HTMLElement>("[data-catalog-hero] [data-reveal-bit]");
+    if (!prefersReduced && heroBits.length) {
+      gsap.fromTo(
+        heroBits,
+        { y: 36, autoAlpha: 0 },
+        { y: 0, autoAlpha: 1, duration: 0.85, stagger: 0.08, ease: "power3.out", delay: 0.05 },
+      );
+    }
+
+    const rows = Array.from(root.querySelectorAll<HTMLElement>("[data-catalog-row]"));
+
+    function revealRow(row: HTMLElement) {
+      if (row.dataset.revealed === "true") return;
+      row.dataset.revealed = "true";
+
+      const bits = row.querySelectorAll<HTMLElement>("[data-reveal-bit]");
+      const media = row.querySelector<HTMLElement>("[data-catalog-media]");
+      const photo = row.querySelector<HTMLElement>("[data-catalog-photo]");
+      const bag = row.querySelector<HTMLElement>("[data-catalog-bag]");
+      const intensity = 1 + Number(row.dataset.rowIndex ?? 0) * 0.12;
+
+      if (prefersReduced) {
+        return;
+      }
+
+      gsap.fromTo(
+        bits,
+        { y: 28 * intensity, autoAlpha: 0 },
+        { y: 0, autoAlpha: 1, duration: 0.7 + intensity * 0.08, stagger: 0.07, ease: "power3.out" },
+      );
+      if (media) {
+        gsap.fromTo(
+          media,
+          { y: 48 * intensity, scale: 0.94, autoAlpha: 0 },
+          { y: 0, scale: 1, autoAlpha: 1, duration: 0.9 + intensity * 0.1, ease: "power3.out" },
+        );
+      }
+      if (bag) {
+        gsap.fromTo(
+          bag,
+          { scale: 0.6, autoAlpha: 0 },
+          { scale: 1, autoAlpha: 1, duration: 0.55, delay: 0.25, ease: "back.out(1.6)" },
+        );
+      }
+      if (photo && !prefersReduced) {
+        gsap.to(photo, {
+          y: -10,
+          duration: 3.2 + intensity * 0.3,
+          ease: "sine.inOut",
+          yoyo: true,
+          repeat: -1,
+          delay: 0.6,
+        });
+      }
+
+      // Pulso de color al entrar cada producto
+      if (panel) {
+        gsap.fromTo(
+          panel,
+          { opacity: 0.35 },
+          { opacity: 0.62, duration: 0.9, ease: "sine.out", yoyo: true, repeat: 1 },
+        );
+        panel.setAttribute("fill", panelColor);
+      }
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) revealRow(entry.target as HTMLElement);
+        }
+      },
+      { threshold: 0.22, rootMargin: "0px 0px -10% 0px" },
+    );
+    rows.forEach((row) => observer.observe(row));
+
+    // Parallax suave de la ola según scroll (más presente al bajar)
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking || prefersReduced) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const max = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
+        const p = window.scrollY / max;
+        if (panel) gsap.set(panel, { opacity: 0.4 + p * 0.35 });
+        ticking = false;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+
+    const canHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    if (!canHover) {
+      root.querySelectorAll<HTMLButtonElement>("[data-catalog-flip]").forEach((flip) => {
+        flip.addEventListener("click", (e) => {
+          // No voltear si el click fue en el bag (está fuera del flip)
+          flip.classList.toggle("is-flipped");
+          e.preventDefault();
+        });
+      });
+    }
+
+    function bindQuickView(button: HTMLButtonElement) {
+      if (button.dataset.bound) return;
+      button.dataset.bound = "true";
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const raw = button.dataset.quickviewPayload;
+        if (!raw) return;
+        try {
+          document.dispatchEvent(new CustomEvent("open-quick-view", { detail: JSON.parse(raw) }));
+        } catch {
+          // ignore
+        }
+      });
+    }
+
+    root.querySelectorAll<HTMLButtonElement>("[data-quickview-payload]").forEach(bindQuickView);
+  }
+
+  document.querySelectorAll<HTMLElement>("[data-catalog-scroll]").forEach(initCatalogScroll);
+</script>

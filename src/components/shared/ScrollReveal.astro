@@ -36,5 +36,17 @@
     items.forEach((el) => observer.observe(el));
   }
 
-  initScrollReveal();
+  // En el home, el bloque justo debajo del hero (CategoryTiles) suele estar
+  // ya cerca del viewport al cargar — si el observer arrancara de una, se
+  // revelaría mientras IntroReveal todavía tapa la pantalla (o apenas
+  // termina), sintiéndose desconectado de la entrada del hero en vez de
+  // una secuencia. Se espera a que la intro termine (evento "intro-hidden")
+  // antes de armar el observer; en el resto del sitio, sin intro, arranca
+  // igual que siempre.
+  const introEl = document.getElementById("intro-reveal");
+  if (introEl && !introEl.classList.contains("intro-hidden")) {
+    document.addEventListener("intro-hidden", initScrollReveal, { once: true });
+  } else {
+    initScrollReveal();
+  }
 </script>

@@ -1,0 +1,91 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { siteConfig } from "../../config/site";
+
+// Página Acerca de — disposición Helias: grilla, tipografía enorme, misión en mono.
+const mission =
+  "Nuestra misión es llevar a tu mesa repostería artesanal hecha a pedido, fresca el día que elegís.";
+
+const chapters = [
+  {
+    title: "Hecho a pedido",
+    text: "No trabajamos con stock frío. Cada torta y postre se prepara desde cero para la fecha de tu celebración.",
+  },
+  {
+    title: "Ingredientes con cuidado",
+    text: "Cacao, frutas de temporada, huevos frescos y bases que se notan en la textura y el sabor.",
+  },
+  {
+    title: "Lima, a tiempo",
+    text: "Pedidos con 2–3 días de anticipación (y opción urgente en algunos productos). Recojo o delivery.",
+  },
+];
+---
+
+<BaseLayout title={`Acerca de — ${siteConfig.name}`} description="Quiénes somos y cómo trabajamos en Arlet.">
+  <section class="about-page relative min-h-[100dvh] overflow-hidden bg-white" data-about-page>
+    <div
+      class="pointer-events-none absolute inset-0 z-0"
+      aria-hidden="true"
+      style="background-image: repeating-linear-gradient(to right, rgba(44,38,35,0.06) 0, rgba(44,38,35,0.06) 1px, transparent 1px, transparent 20%);"
+    />
+
+    <div class="relative z-10 mx-auto flex min-h-[100dvh] max-w-[1400px] flex-col px-6 md:px-12">
+      <div class="pt-16 md:pt-20">
+        <nav class="font-body text-[0.7rem] font-medium tracking-[0.18em] uppercase" data-about-bit>
+          <a href="/" class="text-charcoal hover:text-pink-strong">Inicio</a>
+          <span class="mx-2 text-charcoal/35">/</span>
+          <span class="text-charcoal/45">Acerca de</span>
+        </nav>
+      </div>
+
+      <div class="flex flex-1 flex-col justify-center py-16 md:py-20">
+        <h1
+          class="font-hero text-[clamp(3.5rem,12vw,8.5rem)] leading-[0.88] font-semibold tracking-tight text-charcoal"
+          data-about-bit
+        >
+          Acerca de
+        </h1>
+        <p
+          class="mt-10 max-w-2xl font-[family-name:var(--font-mono)] text-sm leading-relaxed text-charcoal/70 sm:text-base md:mt-12"
+          data-about-bit
+        >
+          {mission}
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 gap-12 border-t border-charcoal/10 py-16 sm:grid-cols-3 sm:gap-8 md:py-20">
+        {
+          chapters.map((chapter) => (
+            <div data-about-bit>
+              <p class="font-body text-[0.65rem] font-semibold tracking-[0.18em] text-charcoal/40 uppercase">
+                {chapter.title}
+              </p>
+              <p class="mt-4 font-[family-name:var(--font-mono)] text-sm leading-relaxed text-charcoal/70">
+                {chapter.text}
+              </p>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  import gsap from "gsap";
+
+  const root = document.querySelector<HTMLElement>("[data-about-page]");
+  if (root && root.dataset.init !== "true") {
+    root.dataset.init = "true";
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const bits = root.querySelectorAll<HTMLElement>("[data-about-bit]");
+    if (!prefersReduced && bits.length) {
+      gsap.fromTo(
+        bits,
+        { y: 32, autoAlpha: 0 },
+        { y: 0, autoAlpha: 1, duration: 0.8, stagger: 0.09, ease: "power3.out" },
+      );
+    }
+  }
+</script>

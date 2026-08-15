@@ -1,0 +1,565 @@
+---
+// Hero estilo Helias: desktop = panel derecho ondulado; móvil = diagonal
+// arriba-derecha (como heliasoils). Una sola viewport, puntos bajo el CTA.
+import type { CategoryAccent } from "../../config/site";
+import { categoryShowcase, categoryShowcaseFallback, studioProductImages } from "../../config/site";
+import { loadCategoriesWithActiveProducts } from "../../db/queries";
+
+const categoriesWithProducts = await loadCategoriesWithActiveProducts();
+
+const slides = categoriesWithProducts
+  .filter((cat) => cat.products.length > 0)
+  .map((cat) => {
+    const showcase = categoryShowcase[cat.slug] ?? categoryShowcaseFallback;
+    const featuredProduct = cat.products[0];
+    const studioImage = studioProductImages[featuredProduct.slug];
+    return {
+      slug: cat.slug,
+      name: cat.name,
+      tagline: showcase.tagline,
+      accent: showcase.accent,
+      image: studioImage ?? featuredProduct.imageUrl,
+      isStudio: Boolean(studioImage),
+      count: cat.products.length,
+    };
+  });
+
+const PANEL_COLOR: Record<CategoryAccent, string> = {
+  pink: "#e4a9bd",
+  gold: "#d9c48a",
+};
+
+const CTA_CLASS: Record<CategoryAccent, string> = {
+  pink: "bg-pink-strong text-white hover:bg-charcoal",
+  gold: "bg-charcoal text-cream hover:bg-pink-strong",
+};
+
+const firstPanel = slides[0] ? PANEL_COLOR[slides[0].accent] : PANEL_COLOR.pink;
+
+/** Esquina superior izquierda (Helias), con morfado suave */
+const DESKTOP_A =
+  "M0,0 L0.58,0 C0.48,0.14 0.36,0.28 0.24,0.42 C0.12,0.56 0.05,0.38 0,0.62 L0,0 Z";
+const DESKTOP_B =
+  "M0,0 L0.64,0 C0.52,0.18 0.4,0.32 0.26,0.48 C0.14,0.6 0.06,0.42 0,0.68 L0,0 Z";
+
+/** Misma esquina en móvil, un poco más compacta */
+const MOBILE_A =
+  "M0,0 L0.78,0 C0.62,0.16 0.48,0.3 0.32,0.44 C0.18,0.56 0.08,0.36 0,0.58 L0,0 Z";
+const MOBILE_B =
+  "M0,0 L0.72,0 C0.58,0.2 0.42,0.34 0.28,0.5 C0.14,0.62 0.06,0.4 0,0.64 L0,0 Z";
+---
+
+{
+  slides.length > 0 && (
+    <section
+      class="showcase relative h-full w-full overflow-hidden bg-white"
+      data-showcase
+      data-desktop-a={DESKTOP_A}
+      data-desktop-b={DESKTOP_B}
+      data-mobile-a={MOBILE_A}
+      data-mobile-b={MOBILE_B}
+      style={`--panel-color: ${firstPanel}`}
+    >
+      <svg
+        class="showcase-split pointer-events-none absolute inset-0 h-full w-full"
+        viewBox="0 0 1 1"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <defs>
+          <clipPath id="showcase-wave-clip" clipPathUnits="objectBoundingBox">
+            <path data-showcase-wave d={MOBILE_A} />
+          </clipPath>
+        </defs>
+        <rect
+          data-showcase-panel
+          width="1"
+          height="1"
+          fill={firstPanel}
+          clip-path="url(#showcase-wave-clip)"
+        />
+      </svg>
+
+      <div class="relative z-10 flex h-full min-h-0 flex-col">
+        {slides.length > 1 && (
+          <div class="showcase-counter-vertical absolute top-1/2 left-3 z-20 hidden -translate-y-1/2 lg:flex lg:left-5">
+            <span data-counter-total>{String(slides.length).padStart(2, "0")}</span>
+            <span class="showcase-counter-sep-v" aria-hidden="true" />
+            <span data-counter-current>01</span>
+          </div>
+        )}
+
+        <div class="relative mx-auto h-full w-full max-w-[1400px] min-h-0">
+          {slides.map((slide, i) => (
+            <div
+              class="showcase-slide absolute inset-0 z-10"
+              data-slide
+              data-panel-color={PANEL_COLOR[slide.accent]}
+              style={i === 0 ? undefined : "visibility:hidden;opacity:0;pointer-events:none;"}
+            >
+              <!-- Móvil Helias: foto arriba → texto centrado → CTA → puntos -->
+              <div class="flex h-full min-h-0 flex-col lg:grid lg:grid-cols-2 lg:items-center">
+                <div class="showcase-media relative flex min-h-0 flex-[1.15] items-center justify-center px-8 pt-2 lg:order-2 lg:flex-none lg:h-full lg:px-10 lg:pt-0">
+                  <img
+                    src={slide.image}
+                    alt={slide.name}
+                    class:list={[
+                      "showcase-photo relative z-[1] object-contain",
+                      slide.isStudio
+                        ? "h-[min(38vh,300px)] w-[78%] max-w-[340px] drop-shadow-[0_20px_40px_rgba(44,38,35,0.16)] lg:h-[min(72vh,640px)] lg:w-[92%] lg:max-w-[520px]"
+                        : "h-[min(34vh,260px)] w-[72%] max-w-[300px] lg:h-[min(68vh,600px)] lg:w-[80%] lg:max-w-[480px]",
+                    ]}
+                    loading={i === 0 ? "eager" : "lazy"}
+                    fetchpriority={i === 0 ? "high" : "low"}
+                  />
+                </div>
+
+                <div class="showcase-slide-text flex flex-col items-center px-6 pb-6 text-center lg:order-1 lg:items-start lg:justify-center lg:px-16 lg:pb-16 lg:pl-20 lg:text-left">
+                  <p class="font-body text-[0.65rem] font-medium tracking-[0.2em] text-charcoal/45 uppercase lg:text-[0.7rem]">
+                    {slide.count} producto{slide.count === 1 ? "" : "s"}
+                  </p>
+                  <h2 class="showcase-title mt-2 font-hero text-[clamp(2.35rem,9vw,6.75rem)] leading-[0.92] font-semibold tracking-tight text-charcoal lg:mt-3">
+                    {slide.name}
+                  </h2>
+                  <p class="showcase-tagline mt-3 max-w-sm font-[family-name:var(--font-mono)] text-[0.8rem] leading-relaxed text-charcoal/70 sm:text-sm lg:mt-5 lg:font-body lg:text-[0.95rem]">
+                    {slide.tagline}
+                  </p>
+                  <a
+                    href={`/catalogo/${slide.slug}`}
+                    class={`showcase-cta mt-5 inline-flex w-fit px-8 py-3.5 font-body text-xs font-semibold tracking-[0.14em] uppercase transition-colors duration-200 lg:mt-8 lg:px-9 ${CTA_CLASS[slide.accent]}`}
+                  >
+                    Ver catálogo
+                  </a>
+
+                  {slides.length > 1 && (
+                    <div class="mt-6 flex min-h-[1.35rem] items-center justify-center gap-3 lg:justify-start" data-showcase-dots-slot />
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {slides.length > 1 && (
+            <>
+              <div class="pointer-events-none absolute inset-y-0 left-0 right-0 z-20 hidden items-center justify-between px-2 lg:flex lg:px-4">
+                <button
+                  type="button"
+                  class="showcase-arrow pointer-events-auto"
+                  data-showcase-prev
+                  aria-label="Categoría anterior"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
+                    <path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  class="showcase-arrow pointer-events-auto"
+                  data-showcase-next
+                  aria-label="Categoría siguiente"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
+                    <path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Puntos: se reubican bajo el CTA del slide activo via JS; markup canónico aquí -->
+              <div class="showcase-dots-source absolute -left-[9999px]" aria-hidden="true">
+                <div class="flex items-center gap-3" data-showcase-dots>
+                  {slides.map((slide, i) => (
+                    <button
+                      type="button"
+                      class:list={["showcase-dot", i === 0 && "is-active"]}
+                      data-showcase-dot
+                      aria-label={`Ir a ${slide.name}`}
+                    >
+                      <span class="showcase-dot__core" />
+                      <svg class="showcase-dot__ring" viewBox="0 0 36 36" aria-hidden="true">
+                        <circle
+                          class="showcase-dot__ring-track"
+                          cx="18"
+                          cy="18"
+                          r="15"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.25"
+                        />
+                        <circle
+                          class="showcase-dot__ring-fill"
+                          data-showcase-ring
+                          cx="18"
+                          cy="18"
+                          r="15"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                          pathLength="100"
+                          stroke-dasharray="100"
+                          stroke-dashoffset="100"
+                        />
+                      </svg>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+<style>
+  .showcase-arrow {
+    display: flex;
+    height: 2.85rem;
+    width: 2.85rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    border: 1px solid rgba(46, 35, 32, 0.14);
+    color: var(--color-charcoal);
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(6px);
+    transition:
+      background-color 0.25s ease,
+      color 0.25s ease,
+      transform 0.25s ease;
+  }
+
+  .showcase-arrow:hover {
+    background: var(--color-charcoal);
+    color: white;
+    transform: scale(1.04);
+  }
+
+  .showcase-dot {
+    position: relative;
+    display: flex;
+    height: 1.35rem;
+    width: 1.35rem;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--color-charcoal);
+    cursor: pointer;
+  }
+
+  .showcase-dot__core {
+    height: 0.38rem;
+    width: 0.38rem;
+    border-radius: 9999px;
+    background: rgba(44, 38, 35, 0.28);
+    transition:
+      background-color 0.3s ease,
+      transform 0.3s ease;
+  }
+
+  .showcase-dot.is-active .showcase-dot__core,
+  .showcase-dot.is-complete .showcase-dot__core {
+    background: var(--color-charcoal);
+  }
+
+  .showcase-dot__ring {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transform: rotate(-90deg);
+    transition: opacity 0.25s ease;
+  }
+
+  .showcase-dot.is-active .showcase-dot__ring {
+    opacity: 1;
+  }
+
+  .showcase-dot__ring-track {
+    opacity: 0.2;
+  }
+
+  .showcase-counter-vertical {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.65rem;
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: rgba(44, 38, 35, 0.55);
+  }
+
+  .showcase-counter-sep-v {
+    width: 1px;
+    height: 48px;
+    background: rgba(44, 38, 35, 0.28);
+  }
+</style>
+
+<script>
+  import gsap from "gsap";
+
+  const AUTOPLAY_MS = 5500;
+  const RING_LEN = 100;
+
+  function initShowcase(root: HTMLElement) {
+    if (root.dataset.showcaseInit === "true") return;
+    root.dataset.showcaseInit = "true";
+
+    const slides = Array.from(root.querySelectorAll<HTMLElement>("[data-slide]"));
+    const panel = root.querySelector<SVGRectElement>("[data-showcase-panel]");
+    const wave = root.querySelector<SVGPathElement>("[data-showcase-wave]");
+    const desktopA = root.dataset.desktopA ?? "";
+    const desktopB = root.dataset.desktopB ?? "";
+    const mobileA = root.dataset.mobileA ?? "";
+    const mobileB = root.dataset.mobileB ?? "";
+    const prevBtn = root.querySelector<HTMLButtonElement>("[data-showcase-prev]");
+    const nextBtn = root.querySelector<HTMLButtonElement>("[data-showcase-next]");
+    const dotsWrap = root.querySelector<HTMLElement>("[data-showcase-dots]");
+    const counterCurrent = root.querySelector<HTMLElement>("[data-counter-current]");
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const desktopMq = window.matchMedia("(min-width: 1024px)");
+
+    const dots = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-showcase-dot]"));
+    const rings = Array.from(root.querySelectorAll<SVGCircleElement>("[data-showcase-ring]"));
+
+    let current = 0;
+    let autoplayTimer: number | undefined;
+    let ringTween: gsap.core.Tween | null = null;
+    let waveTween: gsap.core.Tween | null = null;
+    let animating = false;
+
+    function placeDotsOnActiveSlide() {
+      if (!dotsWrap) return;
+      const active = slides[current];
+      const target = active?.querySelector<HTMLElement>("[data-showcase-dots-slot]");
+      if (target) target.appendChild(dotsWrap);
+    }
+
+    placeDotsOnActiveSlide();
+
+    function wavePair() {
+      return desktopMq.matches
+        ? { a: desktopA, b: desktopB }
+        : { a: mobileA, b: mobileB };
+    }
+
+    function startWaveLoop() {
+      if (!wave || prefersReducedMotion) return;
+      waveTween?.kill();
+      const { a, b } = wavePair();
+      if (!a || !b) return;
+      wave.setAttribute("d", a);
+      waveTween = gsap.to(wave, {
+        attr: { d: b },
+        duration: 5.5,
+        ease: "sine.inOut",
+        yoyo: true,
+        repeat: -1,
+      });
+    }
+
+    startWaveLoop();
+    desktopMq.addEventListener("change", startWaveLoop);
+
+    function floatPhoto(slideEl: HTMLElement, enable: boolean) {
+      const photo = slideEl.querySelector<HTMLElement>(".showcase-photo");
+      if (!photo || prefersReducedMotion) return;
+      gsap.killTweensOf(photo);
+      if (enable) {
+        gsap.to(photo, {
+          y: -10,
+          duration: 3.4,
+          ease: "sine.inOut",
+          yoyo: true,
+          repeat: -1,
+        });
+      }
+    }
+
+    floatPhoto(slides[0], true);
+
+    function setPanelColor(color: string, animate: boolean) {
+      root.style.setProperty("--panel-color", color);
+      if (!panel) return;
+      if (animate && !prefersReducedMotion) {
+        gsap.to(panel, { attr: { fill: color }, duration: 0.9, ease: "power2.inOut" });
+      } else {
+        panel.setAttribute("fill", color);
+      }
+    }
+
+    function syncDots(activeIndex: number) {
+      dots.forEach((dot, i) => {
+        dot.classList.toggle("is-active", i === activeIndex);
+        dot.classList.toggle("is-complete", i < activeIndex);
+      });
+      rings.forEach((ring, i) => {
+        gsap.set(ring, { strokeDashoffset: i < activeIndex ? 0 : RING_LEN });
+      });
+    }
+
+    function stopRing() {
+      ringTween?.kill();
+      ringTween = null;
+    }
+
+    function startRing() {
+      stopRing();
+      if (prefersReducedMotion) return;
+      syncDots(current);
+      const ring = rings[current];
+      if (!ring) return;
+      gsap.set(ring, { strokeDashoffset: RING_LEN });
+      ringTween = gsap.to(ring, {
+        strokeDashoffset: 0,
+        duration: AUTOPLAY_MS / 1000,
+        ease: "none",
+      });
+    }
+
+    function updateCounter(index: number) {
+      if (counterCurrent) counterCurrent.textContent = String(index + 1).padStart(2, "0");
+    }
+
+    function goTo(target: number) {
+      const next = ((target % slides.length) + slides.length) % slides.length;
+      if (next === current || animating) return;
+
+      const outgoing = slides[current];
+      const incoming = slides[next];
+      const outText = outgoing.querySelector<HTMLElement>(".showcase-slide-text");
+      const inText = incoming.querySelector<HTMLElement>(".showcase-slide-text");
+      const outMedia = outgoing.querySelector<HTMLElement>(".showcase-media");
+      const inMedia = incoming.querySelector<HTMLElement>(".showcase-media");
+      const outBits = outText
+        ? Array.from(outText.querySelectorAll<HTMLElement>("p, h2, a")).filter(
+            (el) => !el.closest("[data-showcase-dots]"),
+          )
+        : [];
+      const inBits = inText
+        ? Array.from(inText.querySelectorAll<HTMLElement>("p, h2, a")).filter(
+            (el) => !el.closest("[data-showcase-dots]"),
+          )
+        : [];
+
+      gsap.killTweensOf([
+        outgoing,
+        incoming,
+        outText,
+        inText,
+        outMedia,
+        inMedia,
+        ...outBits,
+        ...inBits,
+      ]);
+      animating = true;
+
+      const nextColor = incoming.dataset.panelColor ?? "";
+      if (nextColor) setPanelColor(nextColor, true);
+
+      floatPhoto(outgoing, false);
+      floatPhoto(incoming, false);
+
+      if (prefersReducedMotion) {
+        gsap.set(outgoing, { autoAlpha: 0, pointerEvents: "none" });
+        gsap.set(incoming, { autoAlpha: 1, pointerEvents: "auto" });
+        animating = false;
+        floatPhoto(incoming, true);
+      } else {
+        const tl = gsap.timeline({
+          onComplete: () => {
+            animating = false;
+            floatPhoto(incoming, true);
+          },
+        });
+
+        tl.to(outBits, { y: -18, autoAlpha: 0, duration: 0.4, stagger: 0.03, ease: "power2.in" }, 0);
+        tl.to(outMedia, { y: 16, scale: 0.95, autoAlpha: 0, duration: 0.45, ease: "power2.in" }, 0);
+        tl.set(outgoing, { autoAlpha: 0, pointerEvents: "none" });
+        tl.set(incoming, { autoAlpha: 1, pointerEvents: "auto" }, 0.25);
+        tl.fromTo(
+          inBits,
+          { y: 22, autoAlpha: 0 },
+          { y: 0, autoAlpha: 1, duration: 0.6, stagger: 0.05, ease: "power3.out" },
+          0.28,
+        );
+        tl.fromTo(
+          inMedia,
+          { y: 28, scale: 0.94, autoAlpha: 0 },
+          { y: 0, scale: 1, autoAlpha: 1, duration: 0.7, ease: "power3.out" },
+          0.26,
+        );
+      }
+
+      current = next;
+      updateCounter(current);
+      syncDots(current);
+      placeDotsOnActiveSlide();
+    }
+
+    function stopAutoplay() {
+      if (autoplayTimer !== undefined) window.clearTimeout(autoplayTimer);
+      autoplayTimer = undefined;
+      stopRing();
+    }
+
+    function startAutoplay() {
+      if (prefersReducedMotion || slides.length <= 1) return;
+      stopAutoplay();
+      startRing();
+      autoplayTimer = window.setTimeout(() => {
+        goTo(current + 1);
+        startAutoplay();
+      }, AUTOPLAY_MS);
+    }
+
+    function jumpTo(index: number) {
+      goTo(index);
+      startAutoplay();
+    }
+
+    if (slides.length > 1) {
+      prevBtn?.addEventListener("click", () => jumpTo(current - 1));
+      nextBtn?.addEventListener("click", () => jumpTo(current + 1));
+      dots.forEach((dot, i) => dot.addEventListener("click", () => jumpTo(i)));
+
+      // En desktop pausar al hover; en móvil no (no hay mouse)
+      if (desktopMq.matches) {
+        root.addEventListener("mouseenter", stopAutoplay);
+        root.addEventListener("mouseleave", startAutoplay);
+      }
+
+      let touchStartX = 0;
+      root.addEventListener(
+        "touchstart",
+        (event) => {
+          touchStartX = event.touches[0]?.clientX ?? 0;
+          stopAutoplay();
+        },
+        { passive: true },
+      );
+      root.addEventListener(
+        "touchend",
+        (event) => {
+          const touchEndX = event.changedTouches[0]?.clientX ?? touchStartX;
+          const delta = touchEndX - touchStartX;
+          if (Math.abs(delta) > 40) {
+            goTo(delta < 0 ? current + 1 : current - 1);
+          }
+          startAutoplay();
+        },
+        { passive: true },
+      );
+
+      syncDots(0);
+      placeDotsOnActiveSlide();
+      startAutoplay();
+    }
+  }
+
+  document.querySelectorAll<HTMLElement>("[data-showcase]").forEach(initShowcase);
+</script>

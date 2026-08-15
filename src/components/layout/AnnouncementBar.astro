@@ -1,6 +1,13 @@
 ---
 import { siteConfig } from "../../config/site";
 
+interface Props {
+  /** Sin barra sólida propia — texto fino directo sobre el lienzo del home fusionado (ver BaseLayout). */
+  transparent?: boolean;
+}
+
+const { transparent = false } = Astro.props;
+
 // Marquee de scroll continuo: se repite el bloque de mensajes dos veces y se
 // anima trasladando exactamente -50% del ancho total — como el contenido es
 // idéntico en ambas mitades, el loop queda perfecto sin importar el ancho
@@ -9,16 +16,16 @@ const MESSAGES = [siteConfig.announcement, "Hecho a pedido, con amor", "Recojo o
 const track = [...MESSAGES, ...MESSAGES];
 ---
 
-<div class="w-full overflow-hidden bg-charcoal py-2">
+<div class={`w-full overflow-hidden py-2 ${transparent ? "" : "bg-charcoal"}`}>
   <div class="marquee-track flex w-max items-center whitespace-nowrap">
     {
       track.map((message, i) => (
         <span
           aria-hidden={i >= MESSAGES.length ? "true" : undefined}
-          class="flex items-center px-6 font-body text-xs font-medium tracking-wide text-cream sm:text-sm"
+          class={`flex items-center px-6 font-body text-xs font-medium tracking-wide sm:text-sm ${transparent ? "text-charcoal/60" : "text-cream"}`}
         >
           {message}
-          <span class="ml-6 text-gold" aria-hidden="true">
+          <span class={`ml-6 ${transparent ? "text-pink-strong" : "text-gold"}`} aria-hidden="true">
             ✦
           </span>
         </span>

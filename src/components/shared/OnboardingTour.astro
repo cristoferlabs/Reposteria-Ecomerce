@@ -79,7 +79,7 @@
     {
       title: "Explorá el catálogo",
       description: "Abrí este menú para ver las categorías con fotos y precios reales, sin necesidad de crear una cuenta todavía.",
-      target: "#nav-dropdown-toggle",
+      target: "#nav-tienda-toggle",
     },
     {
       title: "Vista rápida, sin cambiar de pantalla",
@@ -267,6 +267,15 @@
 
   if (!localStorage.getItem(SEEN_KEY)) {
     localStorage.setItem(SEEN_KEY, "1");
-    window.setTimeout(openTour, 600);
+    // En el home, IntroReveal (logo + tagline) tapa la pantalla al cargar —
+    // si el tour se abriera igual a los 600ms quedarían los dos overlays de
+    // "primera visita" compitiendo. Se espera a que la intro termine (evento
+    // "intro-hidden") antes de arrancar el mismo delay de siempre.
+    const introEl = document.getElementById("intro-reveal");
+    if (introEl && !introEl.classList.contains("intro-hidden")) {
+      document.addEventListener("intro-hidden", () => window.setTimeout(openTour, 600), { once: true });
+    } else {
+      window.setTimeout(openTour, 600);
+    }
   }
 </script>

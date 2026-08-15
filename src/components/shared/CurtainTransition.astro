@@ -1,0 +1,202 @@
+---
+// Transición de página tipo "cortina": panel negro con borde ondulado
+// (como la captura de referencia) que baja al salir y sube al entrar.
+// Se monta una vez en BaseLayout y intercepta clicks a rutas internas.
+---
+
+<div id="page-curtain" class="page-curtain" aria-hidden="true">
+  <div id="page-curtain-panel" class="page-curtain__panel">
+    <div class="page-curtain__fill" />
+    <svg class="page-curtain__wave" viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M0,0 L1440,0 L1440,38 C1320,92 1180,108 1040,72 C900,36 820,18 700,42 C560,72 420,110 260,96 C140,86 60,58 0,44 Z"
+      />
+    </svg>
+  </div>
+</div>
+
+<style>
+  .page-curtain {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    pointer-events: none;
+    visibility: hidden;
+    color: #2a2421;
+  }
+
+  .page-curtain.is-active {
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  .page-curtain__panel {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    /* 100vh de relleno + ola: al estar en y=0 cubre toda la pantalla */
+    transform: translate3d(0, -110%, 0);
+    will-change: transform;
+  }
+
+  .page-curtain__fill {
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    background: currentColor;
+  }
+
+  .page-curtain__wave {
+    display: block;
+    width: 100%;
+    height: clamp(64px, 10vw, 120px);
+    margin-top: -1px;
+  }
+</style>
+
+<script>
+  import gsap from "gsap";
+
+  const STORAGE_KEY = "arlet-curtain";
+  const COVER_MS = 0.7;
+  const REVEAL_MS = 0.65;
+
+  function initCurtain() {
+    const rootEl = document.getElementById("page-curtain");
+    const panelEl = document.getElementById("page-curtain-panel");
+    if (!rootEl || !panelEl) return;
+    if (rootEl.dataset.curtainInit === "true") return;
+    rootEl.dataset.curtainInit = "true";
+
+    const root = rootEl;
+    const panel = panelEl;
+
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let busy = false;
+
+    function setCovered(covered: boolean) {
+      gsap.set(panel, { yPercent: covered ? 0 : -110 });
+      root.classList.toggle("is-active", covered);
+    }
+
+    function cover(): Promise<void> {
+      return new Promise((resolve) => {
+        root.classList.add("is-active");
+        if (prefersReducedMotion) {
+          setCovered(true);
+          resolve();
+          return;
+        }
+        gsap.fromTo(
+          panel,
+          { yPercent: -110 },
+          {
+            yPercent: 0,
+            duration: COVER_MS,
+            ease: "power3.inOut",
+            onComplete: () => resolve(),
+          },
+        );
+      });
+    }
+
+    function reveal(): Promise<void> {
+      return new Promise((resolve) => {
+        root.classList.add("is-active");
+        if (prefersReducedMotion) {
+          setCovered(false);
+          root.classList.remove("is-active");
+          resolve();
+          return;
+        }
+        gsap.fromTo(
+          panel,
+          { yPercent: 0 },
+          {
+            yPercent: -110,
+            duration: REVEAL_MS,
+            ease: "power3.inOut",
+            onComplete: () => {
+              root.classList.remove("is-active");
+              resolve();
+            },
+          },
+        );
+      });
+    }
+
+    // Llegada desde otra página: cortina ya tapando → subir y revelar
+    if (sessionStorage.getItem(STORAGE_KEY) === "1") {
+      sessionStorage.removeItem(STORAGE_KEY);
+      setCovered(true);
+      // Pequeño delay para que pinte el DOM nuevo detrás
+      requestAnimationFrame(() => {
+        void reveal();
+      });
+    }
+
+    function isInternalNav(anchor: HTMLAnchorElement): boolean {
+      if (anchor.hasAttribute("data-no-curtain")) return false;
+      if (anchor.target && anchor.target !== "_self") return false;
+      if (anchor.hasAttribute("download")) return false;
+
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) return false;
+
+      let url: URL;
+      try {
+        url = new URL(href, window.location.href);
+      } catch {
+        return false;
+      }
+
+      if (url.origin !== window.location.origin) return false;
+      // Misma URL (solo hash) → no cortina
+      if (url.pathname === window.location.pathname && url.search === window.location.search) return false;
+      return true;
+    }
+
+    document.addEventListener(
+      "click",
+      (event) => {
+        if (busy) {
+          event.preventDefault();
+          return;
+        }
+        if (event.defaultPrevented) return;
+        if (event.button !== 0) return;
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+        const anchor = (event.target as Element | null)?.closest?.("a");
+        if (!anchor || !(anchor instanceof HTMLAnchorElement)) return;
+        if (!isInternalNav(anchor)) return;
+
+        event.preventDefault();
+        const href = anchor.href;
+        busy = true;
+
+        void cover().then(() => {
+          sessionStorage.setItem(STORAGE_KEY, "1");
+          window.location.assign(href);
+        });
+      },
+      true,
+    );
+
+    // Back/forward: si el navegador restaura sin reload completo, igual revelamos
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted && sessionStorage.getItem(STORAGE_KEY) === "1") {
+        sessionStorage.removeItem(STORAGE_KEY);
+        setCovered(true);
+        void reveal();
+      }
+    });
+  }
+
+  initCurtain();
+  document.addEventListener("astro:page-load", initCurtain);
+</script>

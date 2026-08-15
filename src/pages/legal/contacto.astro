@@ -1,0 +1,68 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { siteConfig, footerNav } from "../../config/site";
+---
+
+<BaseLayout title={`Datos sobre la empresa — ${siteConfig.name}`} description="Información de contacto y datos de Arlet.">
+  <div class="mx-auto max-w-3xl px-4 py-16 md:px-6 md:py-24">
+    <p class="font-body text-xs font-medium tracking-[0.16em] text-pink-strong uppercase">Empresa</p>
+    <h1 class="mt-3 font-body text-4xl font-semibold tracking-tight text-charcoal sm:text-5xl">
+      Datos sobre la empresa
+    </h1>
+
+    <div class="mt-8 space-y-6 font-body text-base leading-relaxed text-charcoal/75">
+      <p>
+        <span class="font-semibold text-charcoal">{siteConfig.name}</span>
+        <br />
+        {siteConfig.tagline}
+      </p>
+      <p>
+        Pedidos y consultas por WhatsApp o desde el carrito del sitio. Envíos y recojo en Lima, con
+        pedidos preparados para la fecha que indiques.
+      </p>
+      <p>País de operación: Perú (S/).</p>
+    </div>
+
+    <div class="mt-12 grid grid-cols-1 gap-10 border-t border-charcoal/10 pt-10 sm:grid-cols-2">
+      <div>
+        <p class="font-body text-xs font-semibold tracking-[0.14em] text-charcoal/50 uppercase">Atención al cliente</p>
+        <ul class="mt-4 space-y-2 font-body text-sm text-charcoal/80">
+          {
+            footerNav.atencionAlCliente.map((item) => (
+              <li>
+                <a href={item.href} class="transition-colors hover:text-pink-strong">
+                  {item.label}
+                </a>
+              </li>
+            ))
+          }
+          <li>
+            <button type="button" id="open-tour-trigger" class="transition-colors hover:text-pink-strong">
+              ¿Cómo funciona?
+            </button>
+          </li>
+        </ul>
+      </div>
+      <div>
+        <p class="font-body text-xs font-semibold tracking-[0.14em] text-charcoal/50 uppercase">Info</p>
+        <ul class="mt-4 space-y-2 font-body text-sm text-charcoal/80">
+          {
+            footerNav.info.map((item) => (
+              <li>
+                <a href={item.href} class="transition-colors hover:text-pink-strong">
+                  {item.label}
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  document.getElementById("open-tour-trigger")?.addEventListener("click", () => {
+    document.dispatchEvent(new CustomEvent("open-tour"));
+  });
+</script>

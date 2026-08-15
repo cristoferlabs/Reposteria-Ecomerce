@@ -1,7 +1,5 @@
 ---
-import { inArray } from "drizzle-orm";
 import "../styles/global.css";
-import AnnouncementBar from "../components/layout/AnnouncementBar.astro";
 import Navbar from "../components/layout/Navbar.astro";
 import Footer from "../components/layout/Footer.astro";
 import QuickViewModal from "../components/catalog/QuickViewModal.astro";
@@ -9,19 +7,26 @@ import CartDrawer from "../components/cart/CartDrawer.astro";
 import OrdersDrawer from "../components/orders/OrdersDrawer.astro";
 import OnboardingTour from "../components/shared/OnboardingTour.astro";
 import ScrollReveal from "../components/shared/ScrollReveal.astro";
+import IntroReveal from "../components/shared/IntroReveal.astro";
+import CurtainTransition from "../components/shared/CurtainTransition.astro";
 import { db } from "../db/client";
 import { products } from "../db/schema";
 import { attachVariants } from "../db/queries";
 import { getSessionUser } from "../lib/auth";
 import { CART_COOKIE_NAME, parseCart } from "../lib/cart/cookieCart";
 import { calculateSubtotalCents, resolveUnitPriceCents } from "../lib/orders/pricing";
+import { inArray } from "drizzle-orm";
 
 interface Props {
   title: string;
   description?: string;
   cartCount?: number;
-  /** Navbar transparente sobre el primer bloque de la página (hoy, solo el home tiene un Hero full-bleed debajo). */
+  /** Navbar transparente sobre el primer bloque de la página — home lo usa. */
   transparentNavbar?: boolean;
+  /** Monta el splash de bienvenida (IntroReveal). */
+  showIntro?: boolean;
+  /** Footer del sitio. En el home va en false: solo queda nav + hero. */
+  showFooter?: boolean;
 }
 
 const rawCartItems = parseCart(Astro.cookies.get(CART_COOKIE_NAME)?.value);
@@ -82,6 +87,8 @@ const {
   description = "Repostería artesanal hecha a pedido.",
   cartCount = cartFromCookie,
   transparentNavbar = false,
+  showIntro = false,
+  showFooter = true,
 } = Astro.props;
 ---
 
@@ -94,36 +101,44 @@ const {
     <meta name="description" content={description} />
     <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
 
-    <!-- Work Sans para todo el sitio (títulos y cuerpo) — los tokens
-         --font-display/--font-body en global.css no cargan nada por sí
-         solos, esto es lo que realmente trae el archivo de fuente. -->
+    <!-- Cormorant (titulares) + DM Sans (UI) + IBM Plex Mono (textos editoriales Helias) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=IBM+Plex+Mono:wght@300;400;500&display=swap"
     />
 
     <title>{title}</title>
   </head>
-  <body class="flex min-h-screen flex-col">
+  <body class:list={["flex flex-col", transparentNavbar ? "h-dvh overflow-hidden" : "min-h-screen"]}>
+    {showIntro && <IntroReveal />}
     {
       transparentNavbar ? (
-        <div class="fixed inset-x-0 top-0 z-50">
-          <AnnouncementBar />
-          <Navbar cartCount={cartCount} transparent />
-        </div>
+        // Home = una sola viewport (nav + hero). Sin scroll ni footer.
+        <>
+          <div class="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[#f7f5f2]">
+            <div class="relative z-10 flex min-h-0 flex-1 flex-col">
+              <Navbar cartCount={cartCount} transparent />
+              <div class="min-h-0 flex-1">
+                <slot name="canvas" />
+              </div>
+            </div>
+          </div>
+          <div class="hidden">
+            <slot />
+          </div>
+        </>
       ) : (
         <>
-          <AnnouncementBar />
           <Navbar cartCount={cartCount} />
+          <div class="flex-1">
+            <slot />
+          </div>
         </>
       )
     }
-    <div class="flex-1">
-      <slot />
-    </div>
-    <Footer />
+    {showFooter && <Footer />}
     <QuickViewModal />
     <CartDrawer
       lines={cartDrawerLines}
@@ -135,5 +150,6 @@ const {
     <OnboardingTour />
     {isLoggedIn && <OrdersDrawer />}
     <ScrollReveal />
+    <CurtainTransition />
   </body>
 </html>

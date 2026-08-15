@@ -1,30 +1,28 @@
 @import "tailwindcss";
 
 @theme {
-  /* Paleta de marca */
-  --color-cream: #fbf1e7;
-  --color-pink-soft: #f6c7d9;
-  --color-pink-strong: #e4568a;
-  --color-charcoal: #2e2320;
-  --color-gold: #c9a227;
+  /* Paleta: cream limpio + acentos un poco más presentes (menos pastel lavado) */
+  --color-cream: #f7f5f2;
+  --color-pink-soft: #e4a9bd;
+  --color-pink-strong: #b45f7f;
+  --color-charcoal: #2c2623;
+  --color-gold: #c4a86a;
+  --color-gold-soft: #d9c48a;
 
-  /* Tipografía: un solo tipo de letra en todo el sitio (antes los títulos
-     usaban Fraunces, un serif — se reemplazó por un estilo más limpio y
-     sans-serif). --font-display queda como alias de --font-body para no
-     tener que tocar cada componente que ya usa la clase font-display. */
-  --font-display: "Work Sans", "Inter", sans-serif;
-  --font-body: "Work Sans", "Inter", sans-serif;
+  /* Tipografía: serif elegante en titulares (estilo Helias) + sans ligera en UI/cuerpo */
+  --font-display: "Cormorant Garamond", "Times New Roman", serif;
+  --font-body: "DM Sans", "Helvetica Neue", sans-serif;
+  --font-hero: "Cormorant Garamond", "Times New Roman", serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 }
 
-/* En @layer base para que una utilidad de Tailwind (ej. bg-neutral-50 en
-   AdminLayout) pueda sobreescribir esto sin pelear con la cascada — fuera
-   de un @layer, esta regla le gana a cualquier utilidad sin importar el
-   orden, porque los estilos sin capa siempre superan a los que sí tienen. */
 @layer base {
   body {
     background-color: #ffffff;
     color: var(--color-charcoal);
     font-family: var(--font-body);
+    font-weight: 400;
+    letter-spacing: 0.01em;
   }
 
   h1,
@@ -32,11 +30,12 @@
   h3,
   h4 {
     font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--color-charcoal);
   }
 }
 
-/* Marquee del AnnouncementBar — el contenido está duplicado en el markup,
-   así que -50% siempre cierra el loop sin importar el ancho real del texto. */
 @keyframes marquee {
   from {
     transform: translateX(0);
@@ -56,10 +55,6 @@
   }
 }
 
-/* Fade-in sutil para el contenido que "avanza" tras una acción del checkout
-   (aceptar ajustes, elegir entrega, pagar) — el sitio es SSR con reload
-   completo entre pasos, así que esto suaviza la aparición del nuevo estado
-   en vez de un salto duro. Alternativa liviana a View Transitions. */
 @keyframes fade-in-up {
   from {
     opacity: 0;
@@ -81,12 +76,6 @@
   }
 }
 
-/* Scroll-reveal: bloques y tarjetas aparecen con un fade + slide sutil al
-   entrar en viewport (ver ScrollReveal.astro, que agrega .is-revealed vía
-   IntersectionObserver). Arrancan invisibles solo si JS corrió a tiempo —
-   sin la clase .js-reveal-ready (agregada por ese mismo script apenas
-   inicializa) quedan visibles de una, para no ocultar contenido si JS falla
-   o tarda. */
 .js-reveal-ready [data-reveal] {
   opacity: 0;
   transform: translateY(28px);

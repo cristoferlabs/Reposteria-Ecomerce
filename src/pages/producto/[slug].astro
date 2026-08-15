@@ -6,7 +6,8 @@ import { categories, products, productVariants } from "../../db/schema";
 import { getSessionUser } from "../../lib/auth";
 import { fetchJson, internalApiUrl } from "../../lib/http/fetchJson";
 import { formatSoles } from "../../lib/orders/pricing";
-import { siteConfig } from "../../config/site";
+import type { CategoryAccent } from "../../config/site";
+import { siteConfig, categoryShowcase, categoryShowcaseFallback, studioProductImages, productCopy } from "../../config/site";
 import StarRating from "../../components/shared/StarRating.astro";
 
 const { slug } = Astro.params;
@@ -28,14 +29,33 @@ const [category, variants] = await Promise.all([
 ]);
 
 const product = { ...productBase, category, variants };
+const copy = productCopy[product.slug];
+const productDescription = copy?.description ?? product.description;
 
 const activeVariants = product.variants.filter((v) => v.active).sort((a, b) => a.sortOrder - b.sortOrder);
 
-// El schema todavía tiene una sola imagen por producto (product.imageUrl) —
-// no hay tabla product_images. Este array queda listo para crecer el día
-// que exista esa pieza (pedirla a la sesión de backend); por ahora es un
-// arreglo de un solo elemento, sin inventar fotos que no existen.
-const images = [product.imageUrl];
+// Mismo mapa de acento + mancha orgánica que usa el hero — coherencia visual
+// "categoría → producto". Si este producto ya tiene foto "studio" (ver
+// studioProductImages en site.ts), flota sin tarjeta sobre la mancha, igual
+// que en el hero; si no, se queda con la foto lifestyle normal dentro de una
+// tarjeta redondeada con sombra — incluso así, sigue llevando la mancha
+// detrás, así nunca se ve "menos terminado" que el que sí tiene foto studio.
+const showcase = categoryShowcase[product.category.slug] ?? categoryShowcaseFallback;
+const studioImage = studioProductImages[product.slug];
+const isStudio = Boolean(studioImage);
+const BLOB_COLOR: Record<CategoryAccent, string> = {
+  pink: "var(--color-pink-soft)",
+  gold: "var(--color-gold-soft)",
+};
+
+// El schema todavía tiene una sola imagen "real" por producto
+// (product.imageUrl) — no hay tabla product_images, así que este array
+// queda listo para crecer el día que exista esa pieza. Si hay foto studio,
+// esa es la que se usa como esa única imagen (y la que apunta el único
+// thumbnail) — mostrar la lifestyle en el thumbnail mientras la studio es la
+// principal generaría un swap visual raro al hacer click, para una sola
+// foto que hoy no aporta una vista distinta.
+const images = [studioImage ?? product.imageUrl];
 
 const session = getSessionUser(Astro.request);
 
@@ -85,7 +105,7 @@ const reviewLoginUrl = "/cuenta/acceso?redirect=" + encodeURIComponent(`/product
 
 <BaseLayout
   title={`${product.name} — ${siteConfig.name}`}
-  description={product.description || `${product.name}, hecho a pedido.`}
+  description={productDescription || `${product.name}, hecho a pedido.`}
 >
   <nav class="mx-auto max-w-6xl px-4 pt-8 text-sm text-charcoal/60 md:px-6">
     <a href="/" class="hover:text-pink-strong">Inicio</a>
@@ -97,21 +117,44 @@ const reviewLoginUrl = "/cuenta/acceso?redirect=" + encodeURIComponent(`/product
 
   <div class="mx-auto grid max-w-6xl grid-cols-1 gap-10 px-4 py-10 md:grid-cols-2 md:gap-12 md:px-6 md:py-16">
     <div>
-      <div class="relative aspect-[4/5] w-full overflow-hidden rounded-lg bg-neutral-100">
-        <img
-          id="gallery-main"
-          src={images[0]}
-          alt={product.name}
-          loading="eager"
-          decoding="async"
-          class="h-full w-full object-cover"
-        />
-        <span
-          id="gallery-counter"
-          class="absolute right-3 bottom-3 rounded-full bg-charcoal/70 px-2.5 py-1 font-body text-xs font-medium text-white"
-        >
-          1 / {images.length}
-        </span>
+      <div class="relative flex items-center justify-center">
+        <svg class="absolute h-[130%] w-[130%]" viewBox="0 0 200 200" aria-hidden="true">
+          <g transform="translate(100 100)">
+            <path
+              fill={BLOB_COLOR[showcase.accent]}
+              d="M46.7,-58.3C59.4,-49.1,68.2,-33.9,71.8,-17.5C75.4,-1.1,73.8,16.5,65.9,30.9C58,45.3,43.8,56.5,27.9,63.6C12,70.7,-5.6,73.7,-22.2,69.4C-38.8,65.1,-54.4,53.5,-63.8,38.2C-73.2,22.9,-76.4,3.9,-72.9,-13.5C-69.4,-30.9,-59.2,-46.7,-45.4,-56C-31.6,-65.3,-15.8,-68.1,0.9,-69.3C17.6,-70.5,34.1,-67.5,46.7,-58.3Z"
+            />
+          </g>
+        </svg>
+        {
+          isStudio ? (
+            <img
+              id="gallery-main"
+              src={images[0]}
+              alt={product.name}
+              loading="eager"
+              decoding="async"
+              class="relative w-[68%] object-contain drop-shadow-xl"
+            />
+          ) : (
+            <div class="relative aspect-[4/5] w-[86%] overflow-hidden rounded-[2rem] shadow-2xl">
+              <img
+                id="gallery-main"
+                src={images[0]}
+                alt={product.name}
+                loading="eager"
+                decoding="async"
+                class="h-full w-full object-cover"
+              />
+              <span
+                id="gallery-counter"
+                class="absolute right-3 bottom-3 rounded-full bg-charcoal/70 px-2.5 py-1 font-body text-xs font-medium text-white"
+              >
+                1 / {images.length}
+              </span>
+            </div>
+          )
+        }
       </div>
       <div class="mt-3 flex gap-2">
         {
@@ -186,7 +229,7 @@ const reviewLoginUrl = "/cuenta/acceso?redirect=" + encodeURIComponent(`/product
            nativo, para que la animación se vea igual en todos lados. -->
       <div class="mt-8 border-t border-charcoal/10">
         {
-          product.description && (
+          productDescription && (
             <div class="border-b border-charcoal/10">
               <button
                 type="button"
@@ -210,7 +253,14 @@ const reviewLoginUrl = "/cuenta/acceso?redirect=" + encodeURIComponent(`/product
                 class="accordion-panel grid grid-rows-[1fr] overflow-hidden transition-[grid-template-rows] duration-300"
               >
                 <div class="min-h-0 overflow-hidden">
-                  <p class="pb-4 text-sm leading-relaxed text-charcoal/70">{product.description}</p>
+                  <p class="pb-3 text-sm leading-relaxed text-charcoal/70">{productDescription}</p>
+                  {copy?.includes?.length ? (
+                    <ul class="space-y-1.5 pb-4 font-[family-name:var(--font-mono)] text-sm text-charcoal/65">
+                      {copy.includes.map((line) => (
+                        <li>— {line}</li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </div>
               </div>
             </div>

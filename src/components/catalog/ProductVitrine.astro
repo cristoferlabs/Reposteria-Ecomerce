@@ -1,0 +1,300 @@
+---
+// Vitrina "PowerPoint" de categoría: una pieza grande activa + lista vertical
+// de las demás (crossfade GSAP al cambiar, mismo mecanismo que
+// CategoryShowcase). Reemplaza el grid de ProductCard en
+// pages/catalogo/[categoria].astro — con 2-5 SKUs se ve intencional; un grid
+// denso se ve vacío.
+import type { CategoryAccent } from "../../config/site";
+
+interface Variant {
+  id: number;
+  name: string;
+  priceDeltaCents: number;
+}
+
+interface VitrineItem {
+  productId: number;
+  name: string;
+  priceLabel: string;
+  basePriceCents: number;
+  image: string;
+  isStudio: boolean;
+  href: string;
+  description: string | null;
+  variants: Variant[];
+  leadTimeDays: number;
+  allowsUrgent: boolean;
+  hasVariants: boolean;
+}
+
+interface Props {
+  items: VitrineItem[];
+  accent?: CategoryAccent;
+}
+
+const { items, accent = "pink" } = Astro.props;
+
+const CTA: Record<CategoryAccent, string> = {
+  pink: "bg-pink-strong text-white hover:bg-charcoal",
+  gold: "bg-gold text-charcoal hover:bg-charcoal hover:text-white",
+};
+const BLOB: Record<CategoryAccent, string> = {
+  pink: "var(--color-pink-soft)",
+  gold: "var(--color-gold-soft)",
+};
+const EYEBROW: Record<CategoryAccent, string> = {
+  pink: "text-pink-strong",
+  gold: "text-gold",
+};
+
+function quickViewPayload(item: VitrineItem) {
+  return JSON.stringify({
+    productId: item.productId,
+    name: item.name,
+    priceLabel: item.priceLabel,
+    basePriceCents: item.basePriceCents,
+    image: item.image,
+    href: item.href,
+    description: item.description,
+    variants: item.variants,
+    leadTimeDays: item.leadTimeDays,
+    allowsUrgent: item.allowsUrgent,
+  });
+}
+---
+
+{
+  items.length > 0 && (
+    <div class="vitrine" data-vitrine>
+      <div class="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_220px] lg:gap-10 xl:grid-cols-[1fr_260px]">
+        {/* Escenario grande: slides apilados, solo uno visible a la vez */}
+        <div class="relative min-h-[520px] sm:min-h-[560px] lg:min-h-[600px]">
+          {items.map((item, i) => (
+            <div
+              class="vitrine-slide absolute inset-0 z-10 grid grid-cols-1 items-center gap-8 md:grid-cols-2 md:gap-10"
+              data-vitrine-slide
+              style={i === 0 ? undefined : "opacity:0;pointer-events:none;"}
+            >
+              <div class="vitrine-media relative flex items-center justify-center order-1">
+                <svg
+                  class="vitrine-blob absolute h-[115%] w-[115%] sm:h-[125%] sm:w-[125%]"
+                  viewBox="0 0 200 200"
+                  aria-hidden="true"
+                >
+                  <g transform="translate(100 100)">
+                    <path
+                      fill={BLOB[accent]}
+                      d="M46.7,-58.3C59.4,-49.1,68.2,-33.9,71.8,-17.5C75.4,-1.1,73.8,16.5,65.9,30.9C58,45.3,43.8,56.5,27.9,63.6C12,70.7,-5.6,73.7,-22.2,69.4C-38.8,65.1,-54.4,53.5,-63.8,38.2C-73.2,22.9,-76.4,3.9,-72.9,-13.5C-69.4,-30.9,-59.2,-46.7,-45.4,-56C-31.6,-65.3,-15.8,-68.1,0.9,-69.3C17.6,-70.5,34.1,-67.5,46.7,-58.3Z"
+                    />
+                  </g>
+                </svg>
+                <img
+                  src={item.image}
+                  alt={item.name}
+                  class={
+                    item.isStudio
+                      ? "vitrine-photo relative w-[72%] object-contain drop-shadow-xl sm:w-[62%]"
+                      : "vitrine-photo relative aspect-[4/5] w-[80%] rounded-[2rem] object-cover shadow-2xl sm:w-[72%]"
+                  }
+                  loading={i === 0 ? "eager" : "lazy"}
+                  fetchpriority={i === 0 ? "high" : "low"}
+                />
+              </div>
+
+              <div class="vitrine-text order-2 max-w-md">
+                <p class={`font-body text-xs font-semibold tracking-widest uppercase ${EYEBROW[accent]}`}>
+                  {String(i + 1).padStart(2, "0")} / {String(items.length).padStart(2, "0")}
+                </p>
+                <h2 class="mt-3 font-hero text-4xl leading-[0.95] font-semibold text-charcoal sm:text-5xl lg:text-6xl">
+                  {item.name}
+                </h2>
+                <p class={`mt-3 font-body text-xl font-semibold ${EYEBROW[accent]}`}>{item.priceLabel}</p>
+                {item.description && (
+                  <p class="mt-4 font-body text-sm leading-relaxed text-charcoal/70 line-clamp-3">{item.description}</p>
+                )}
+                <div class="mt-8 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    class={`quick-view-trigger rounded-full px-7 py-3 font-body text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${CTA[accent]}`}
+                    data-quickview-payload={quickViewPayload(item)}
+                  >
+                    {item.hasVariants ? "Seleccionar opciones" : "Agregar"}
+                  </button>
+                  <a
+                    href={item.href}
+                    class="rounded-full border border-charcoal/20 px-7 py-3 font-body text-sm font-semibold text-charcoal transition-colors hover:border-charcoal hover:bg-charcoal hover:text-white"
+                  >
+                    Ver detalle
+                  </a>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Lista: vertical en desktop, fila horizontal scroll en mobile */}
+        <div
+          class="vitrine-list flex gap-3 overflow-x-auto pb-2 lg:max-h-[600px] lg:flex-col lg:gap-2 lg:overflow-y-auto lg:overflow-x-hidden lg:pb-0"
+          role="listbox"
+          aria-label="Productos de la categoría"
+        >
+          {items.map((item, i) => (
+            <button
+              type="button"
+              role="option"
+              aria-selected={i === 0 ? "true" : "false"}
+              data-vitrine-thumb
+              class={`vitrine-thumb group flex w-[140px] shrink-0 items-center gap-3 rounded-xl border p-2 text-left transition-colors lg:w-full ${
+                i === 0 ? "is-active border-charcoal/25 bg-white shadow-sm" : "border-transparent hover:border-charcoal/10 hover:bg-white/60"
+              }`}
+            >
+              <div class="h-16 w-14 shrink-0 overflow-hidden rounded-lg bg-white">
+                <img
+                  src={item.image}
+                  alt=""
+                  class={`h-full w-full ${item.isStudio ? "object-contain p-1" : "object-cover"}`}
+                  loading="lazy"
+                />
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="truncate font-body text-sm font-medium text-charcoal">{item.name}</p>
+                <p class={`mt-0.5 font-body text-xs font-semibold ${EYEBROW[accent]}`}>{item.priceLabel}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+<style>
+  .vitrine-media {
+    min-height: 280px;
+  }
+
+  @media (min-width: 768px) {
+    .vitrine-media {
+      min-height: 420px;
+    }
+  }
+
+  .vitrine-thumb.is-active {
+    border-color: rgba(46, 35, 32, 0.25);
+    background: white;
+    box-shadow: 0 4px 14px rgba(46, 35, 32, 0.06);
+  }
+
+  /* Scrollbar discreto en la lista vertical */
+  .vitrine-list {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(46, 35, 32, 0.2) transparent;
+  }
+</style>
+
+<script>
+  import gsap from "gsap";
+
+  function initVitrine(root: HTMLElement) {
+    if (root.dataset.vitrineInit === "true") return;
+    root.dataset.vitrineInit = "true";
+
+    const slides = Array.from(root.querySelectorAll<HTMLElement>("[data-vitrine-slide]"));
+    const thumbs = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-vitrine-thumb]"));
+    if (slides.length === 0) return;
+
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let current = 0;
+    let animating = false;
+
+    function setActiveThumb(index: number) {
+      thumbs.forEach((thumb, i) => {
+        const active = i === index;
+        thumb.classList.toggle("is-active", active);
+        thumb.setAttribute("aria-selected", active ? "true" : "false");
+      });
+    }
+
+    function goTo(target: number) {
+      const next = ((target % slides.length) + slides.length) % slides.length;
+      if (next === current || animating) return;
+
+      const outgoing = slides[current];
+      const incoming = slides[next];
+      const outgoingText = outgoing.querySelector<HTMLElement>(".vitrine-text");
+      const incomingText = incoming.querySelector<HTMLElement>(".vitrine-text");
+      const outgoingMedia = outgoing.querySelector<HTMLElement>(".vitrine-media");
+      const incomingMedia = incoming.querySelector<HTMLElement>(".vitrine-media");
+
+      animating = true;
+
+      if (prefersReducedMotion) {
+        gsap.set(outgoing, { opacity: 0, pointerEvents: "none" });
+        gsap.set(incoming, { opacity: 1, pointerEvents: "auto" });
+        animating = false;
+      } else {
+        gsap.to(outgoing, { opacity: 0, duration: 0.45, ease: "power2.out", pointerEvents: "none" });
+        if (outgoingText) gsap.to(outgoingText, { y: -12, duration: 0.45, ease: "power2.out" });
+        if (outgoingMedia) gsap.to(outgoingMedia, { scale: 0.97, duration: 0.45, ease: "power2.out" });
+
+        gsap.fromTo(
+          incoming,
+          { opacity: 0 },
+          {
+            opacity: 1,
+            duration: 0.55,
+            ease: "power2.out",
+            pointerEvents: "auto",
+            onComplete: () => {
+              animating = false;
+            },
+          },
+        );
+        if (incomingText) {
+          gsap.fromTo(
+            incomingText,
+            { y: 14, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.55, delay: 0.08, ease: "power2.out" },
+          );
+        }
+        if (incomingMedia) {
+          gsap.fromTo(
+            incomingMedia,
+            { scale: 0.97, opacity: 0 },
+            { scale: 1, opacity: 1, duration: 0.55, delay: 0.04, ease: "power2.out" },
+          );
+        }
+      }
+
+      current = next;
+      setActiveThumb(current);
+
+      // En mobile, asegurar que el thumb activo quede visible en el scroll horizontal
+      const activeThumb = thumbs[current];
+      activeThumb?.scrollIntoView({ behavior: prefersReducedMotion ? "auto" : "smooth", inline: "center", block: "nearest" });
+    }
+
+    thumbs.forEach((thumb, i) => {
+      thumb.addEventListener("click", () => goTo(i));
+    });
+
+    // Quick-view: mismo patrón que ProductCard (evento open-quick-view)
+    root.querySelectorAll<HTMLButtonElement>(".quick-view-trigger").forEach((button) => {
+      if (button.dataset.quickviewBound) return;
+      button.dataset.quickviewBound = "true";
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        const raw = button.dataset.quickviewPayload;
+        if (!raw) return;
+        try {
+          const detail = JSON.parse(raw);
+          document.dispatchEvent(new CustomEvent("open-quick-view", { detail }));
+        } catch {
+          // payload inválido — no abrir modal
+        }
+      });
+    });
+  }
+
+  document.querySelectorAll<HTMLElement>("[data-vitrine]").forEach(initVitrine);
+</script>
