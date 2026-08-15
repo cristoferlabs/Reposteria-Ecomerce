@@ -48,10 +48,10 @@ export const tiendaBlocks = [
     image: "/assets/products/tienda/pionono-oreo.png",
   },
   {
-    name: "Pie de Moras",
-    description: "Masa quebrada y relleno de moras.",
-    href: "/producto/pie-moras",
-    image: "/assets/products/tienda/pie-moras.png",
+    name: "Torta de Chocolate",
+    description: "Bizcocho húmedo con ganache y fresas.",
+    href: "/producto/torta-chocolate",
+    image: "/assets/products/catalogo/torta-chocolate.jpg",
   },
 ] as const;
 
@@ -94,7 +94,6 @@ export const categoryShowcaseFallback = {
 // Specs de la foto y dónde guardarla: ver ESPECIFICACION_FOTOS_PRODUCTO.md.
 export const studioProductImages: Record<string, string> = {
   "torta-chocolate": "/assets/products/studio/torta-chocolate.png",
-  "pie-moras": "/assets/products/studio/pie-moras.png",
   "pionono-oreo": "/assets/products/studio/pionono-oreo.png",
   quesillo: "/assets/products/studio/quesillo.png",
 };
@@ -102,12 +101,11 @@ export const studioProductImages: Record<string, string> = {
 /**
  * Fotos con fondo blanco sólido para el catálogo (JPG).
  * Evita los PNG “transparentes” que en la práctica dejan damero / fondo sucio.
- * Sin cheesecake / leche-asada: fotos incorrectas o con damero.
+ * Sin cheesecake / leche-asada / pie-moras: fotos incorrectas o con damero.
  */
 export const catalogProductImages: Record<string, string> = {
   "torta-chocolate": "/assets/products/catalogo/torta-chocolate.jpg",
   "cheesecake-ciruela": "/assets/products/catalogo/cheesecake-ciruela.jpg",
-  "pie-moras": "/assets/products/catalogo/pie-moras.jpg",
   "pionono-oreo": "/assets/products/catalogo/pionono-oreo.jpg",
   quesillo: "/assets/products/catalogo/quesillo.jpg",
 };
@@ -116,7 +114,6 @@ export const catalogProductImages: Record<string, string> = {
 export const productMaterials: Record<string, string[]> = {
   "torta-chocolate": ["Cacao peruano", "Huevos frescos", "Mantequilla", "Azúcar rubia", "Crema de leche"],
   "cheesecake-ciruela": ["Queso crema", "Compota de ciruela", "Galleta", "Huevos", "Azúcar"],
-  "pie-moras": ["Moras frescas", "Masa quebrada", "Azúcar", "Mantequilla", "Limón"],
   "pionono-oreo": ["Bizcocho de cacao", "Crema", "Galletas Oreo", "Azúcar", "Huevos"],
   quesillo: ["Leche fresca", "Huevos", "Azúcar caramelizada", "Vainilla"],
 };
@@ -153,16 +150,6 @@ export const productCopy: Record<
       "Compota de ciruela preparada aparte",
       "Base de galleta",
       "Lead time de 3 días (sin opción urgente)",
-    ],
-  },
-  "pie-moras": {
-    description:
-      "Masa quebrada dorada y relleno abundante de moras. Corte limpio, borde crocante y sabor a fruta real — ideal para la sobremesa.",
-    includes: [
-      "Pie entero para compartir",
-      "Masa quebrada horneada",
-      "Relleno de moras",
-      "Listo para servir frío o tibio",
     ],
   },
   "pionono-oreo": {

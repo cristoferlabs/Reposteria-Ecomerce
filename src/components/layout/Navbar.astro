@@ -41,12 +41,13 @@ const navLink =
 
 <header
   id="navbar-header"
-  data-scrolled={transparent ? "false" : undefined}
-  class={
-    transparent
-      ? "sticky top-0 z-50 w-full shrink-0 transition-colors duration-300 data-[scrolled=true]:border-b data-[scrolled=true]:border-charcoal/8 data-[scrolled=true]:bg-white/90 data-[scrolled=true]:backdrop-blur"
-      : "sticky top-0 z-50 shrink-0 border-b border-charcoal/8 bg-white/90 backdrop-blur"
-  }
+  data-scrolled="false"
+  data-transparent={transparent ? "true" : "false"}
+  class:list={[
+    "navbar z-50 w-full border-b border-transparent bg-transparent transition-[background-color,border-color,box-shadow,backdrop-filter] duration-300",
+    "data-[scrolled=true]:border-charcoal/10 data-[scrolled=true]:bg-[#f7f5f2]/95 data-[scrolled=true]:shadow-[0_8px_24px_rgba(44,38,35,0.06)] data-[scrolled=true]:backdrop-blur-md",
+    transparent ? "fixed inset-x-0 top-0" : "sticky top-0 shrink-0",
+  ]}
 >
   <div class="relative mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3.5 md:px-8 md:py-5">
     <!-- Izquierda: menú (+ logo en desktop) -->
@@ -56,7 +57,7 @@ const navLink =
         id="nav-open-toggle"
         aria-label="Abrir menú"
         aria-expanded="false"
-        class={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border bg-white/90 transition-colors sm:h-12 sm:w-12 ${border} ${fg} ${hoverBg}`}
+        class={`navbar-icon-btn flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors sm:h-12 sm:w-12 ${border} ${fg} ${hoverBg}`}
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-5 w-5">
           <path d="M5 9h14M5 15h14" stroke-linecap="round" />
@@ -311,12 +312,34 @@ const navLink =
   });
 
   const navHeader = document.getElementById("navbar-header");
-  if (navHeader && navHeader.hasAttribute("data-scrolled")) {
-    const threshold = Math.min(400, window.innerHeight * 0.5);
+  if (navHeader) {
+    // En home (nav fija / sin scroll de página) permanece siempre transparente
+    const stayTransparent = navHeader.dataset.transparent === "true";
+    const threshold = 24;
     function updateScrolled() {
+      if (stayTransparent) {
+        navHeader!.dataset.scrolled = "false";
+        return;
+      }
       navHeader!.dataset.scrolled = window.scrollY > threshold ? "true" : "false";
     }
     updateScrolled();
     window.addEventListener("scroll", updateScrolled, { passive: true });
   }
 </script>
+
+<style>
+  #navbar-header[data-scrolled="false"] .navbar-icon-btn {
+    background: rgba(255, 255, 255, 0.35);
+    border-color: rgba(44, 38, 35, 0.16);
+    backdrop-filter: blur(4px);
+  }
+
+  #navbar-header[data-transparent="true"][data-scrolled="false"] .navbar-icon-btn {
+    background: rgba(255, 255, 255, 0.45);
+  }
+
+  #navbar-header[data-scrolled="true"] .navbar-icon-btn {
+    background: rgba(255, 255, 255, 0.9);
+  }
+</style>

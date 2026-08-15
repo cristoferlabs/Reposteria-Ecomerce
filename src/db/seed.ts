@@ -63,18 +63,6 @@ async function seed() {
     },
     {
       categoryId: tortas,
-      slug: "pie-moras",
-      name: "Pie de Moras",
-      description:
-        "Masa quebrada dorada y relleno abundante de moras. Corte limpio, borde crocante y sabor a fruta real.",
-      basePriceCents: 6500,
-      imageUrl: productImage("pie-moras.webp"),
-      leadTimeDays: 2,
-      allowsUrgent: true,
-      featured: true,
-    },
-    {
-      categoryId: tortas,
       slug: "pionono-oreo",
       name: "Pionono de Oreo",
       description:

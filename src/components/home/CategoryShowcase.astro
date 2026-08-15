@@ -36,17 +36,17 @@ const CTA_CLASS: Record<CategoryAccent, string> = {
 
 const firstPanel = slides[0] ? PANEL_COLOR[slides[0].accent] : PANEL_COLOR.pink;
 
-/** Esquina superior izquierda (Helias), con morfado suave */
+/** Home Helias: diagonal desde esquina superior derecha (panel derecho completo) */
 const DESKTOP_A =
-  "M0,0 L0.58,0 C0.48,0.14 0.36,0.28 0.24,0.42 C0.12,0.56 0.05,0.38 0,0.62 L0,0 Z";
+  "M0.38,0 C0.34,0.16 0.48,0.28 0.42,0.44 C0.36,0.6 0.5,0.76 0.44,1 L1,1 L1,0 Z";
 const DESKTOP_B =
-  "M0,0 L0.64,0 C0.52,0.18 0.4,0.32 0.26,0.48 C0.14,0.6 0.06,0.42 0,0.68 L0,0 Z";
+  "M0.44,0 C0.5,0.14 0.36,0.3 0.46,0.46 C0.56,0.62 0.4,0.8 0.5,1 L1,1 L1,0 Z";
 
-/** Misma esquina en móvil, un poco más compacta */
+/** Móvil: misma diagonal desde arriba-derecha */
 const MOBILE_A =
-  "M0,0 L0.78,0 C0.62,0.16 0.48,0.3 0.32,0.44 C0.18,0.56 0.08,0.36 0,0.58 L0,0 Z";
+  "M0.18,0 C0.22,0.2 0.4,0.34 0.32,0.5 C0.24,0.66 0.42,0.82 0.36,1 L1,1 L1,0 Z";
 const MOBILE_B =
-  "M0,0 L0.72,0 C0.58,0.2 0.42,0.34 0.28,0.5 C0.14,0.62 0.06,0.4 0,0.64 L0,0 Z";
+  "M0.26,0 C0.36,0.18 0.22,0.36 0.38,0.52 C0.5,0.68 0.3,0.84 0.42,1 L1,1 L1,0 Z";
 ---
 
 {
@@ -68,7 +68,7 @@ const MOBILE_B =
       >
         <defs>
           <clipPath id="showcase-wave-clip" clipPathUnits="objectBoundingBox">
-            <path data-showcase-wave d={MOBILE_A} />
+            <path data-showcase-wave d={DESKTOP_A} />
           </clipPath>
         </defs>
         <rect
@@ -80,7 +80,7 @@ const MOBILE_B =
         />
       </svg>
 
-      <div class="relative z-10 flex h-full min-h-0 flex-col">
+      <div class="relative z-10 flex h-full min-h-0 flex-col pt-[4.5rem] sm:pt-[5.25rem]">
         {slides.length > 1 && (
           <div class="showcase-counter-vertical absolute top-1/2 left-3 z-20 hidden -translate-y-1/2 lg:flex lg:left-5">
             <span data-counter-total>{String(slides.length).padStart(2, "0")}</span>
@@ -97,36 +97,35 @@ const MOBILE_B =
               data-panel-color={PANEL_COLOR[slide.accent]}
               style={i === 0 ? undefined : "visibility:hidden;opacity:0;pointer-events:none;"}
             >
-              <!-- Móvil Helias: foto arriba → texto centrado → CTA → puntos -->
               <div class="flex h-full min-h-0 flex-col lg:grid lg:grid-cols-2 lg:items-center">
-                <div class="showcase-media relative flex min-h-0 flex-[1.15] items-center justify-center px-8 pt-2 lg:order-2 lg:flex-none lg:h-full lg:px-10 lg:pt-0">
+                <div class="showcase-media relative flex min-h-0 flex-[1.2] items-center justify-center px-6 pt-1 lg:order-2 lg:flex-none lg:h-full lg:px-8 lg:pt-0">
                   <img
                     src={slide.image}
                     alt={slide.name}
                     class:list={[
                       "showcase-photo relative z-[1] object-contain",
                       slide.isStudio
-                        ? "h-[min(38vh,300px)] w-[78%] max-w-[340px] drop-shadow-[0_20px_40px_rgba(44,38,35,0.16)] lg:h-[min(72vh,640px)] lg:w-[92%] lg:max-w-[520px]"
-                        : "h-[min(34vh,260px)] w-[72%] max-w-[300px] lg:h-[min(68vh,600px)] lg:w-[80%] lg:max-w-[480px]",
+                        ? "h-[min(40vh,320px)] w-[82%] max-w-[380px] drop-shadow-[0_20px_40px_rgba(44,38,35,0.16)] lg:h-[min(74vh,680px)] lg:w-[94%] lg:max-w-[560px]"
+                        : "h-[min(36vh,280px)] w-[76%] max-w-[320px] lg:h-[min(70vh,620px)] lg:w-[84%] lg:max-w-[500px]",
                     ]}
                     loading={i === 0 ? "eager" : "lazy"}
                     fetchpriority={i === 0 ? "high" : "low"}
                   />
                 </div>
 
-                <div class="showcase-slide-text flex flex-col items-center px-6 pb-6 text-center lg:order-1 lg:items-start lg:justify-center lg:px-16 lg:pb-16 lg:pl-20 lg:text-left">
-                  <p class="font-body text-[0.65rem] font-medium tracking-[0.2em] text-charcoal/45 uppercase lg:text-[0.7rem]">
+                <div class="showcase-slide-text flex flex-col items-center px-6 pb-5 text-center lg:order-1 lg:items-start lg:justify-center lg:px-14 lg:pb-12 lg:pl-16 lg:text-left xl:pl-20">
+                  <p class="font-body text-[0.7rem] font-medium tracking-[0.2em] text-charcoal/45 uppercase sm:text-sm">
                     {slide.count} producto{slide.count === 1 ? "" : "s"}
                   </p>
-                  <h2 class="showcase-title mt-2 font-hero text-[clamp(2.35rem,9vw,6.75rem)] leading-[0.92] font-semibold tracking-tight text-charcoal lg:mt-3">
+                  <h2 class="showcase-title mt-2 font-hero text-[clamp(3.25rem,11vw,8.25rem)] leading-[0.88] font-semibold tracking-tight text-charcoal lg:mt-4">
                     {slide.name}
                   </h2>
-                  <p class="showcase-tagline mt-3 max-w-sm font-[family-name:var(--font-mono)] text-[0.8rem] leading-relaxed text-charcoal/70 sm:text-sm lg:mt-5 lg:font-body lg:text-[0.95rem]">
+                  <p class="showcase-tagline mt-4 max-w-md font-[family-name:var(--font-mono)] text-[0.9rem] leading-relaxed text-charcoal/75 sm:text-base lg:mt-6 lg:text-lg">
                     {slide.tagline}
                   </p>
                   <a
                     href={`/catalogo/${slide.slug}`}
-                    class={`showcase-cta mt-5 inline-flex w-fit px-8 py-3.5 font-body text-xs font-semibold tracking-[0.14em] uppercase transition-colors duration-200 lg:mt-8 lg:px-9 ${CTA_CLASS[slide.accent]}`}
+                    class={`showcase-cta mt-6 inline-flex w-fit px-9 py-4 font-body text-sm font-semibold tracking-[0.14em] uppercase transition-colors duration-200 lg:mt-9 ${CTA_CLASS[slide.accent]}`}
                   >
                     Ver catálogo
                   </a>
@@ -352,7 +351,7 @@ const MOBILE_B =
       waveTween?.kill();
       const { a, b } = wavePair();
       if (!a || !b) return;
-      wave.setAttribute("d", a);
+      gsap.set(wave, { attr: { d: a } });
       waveTween = gsap.to(wave, {
         attr: { d: b },
         duration: 5.5,
@@ -362,6 +361,9 @@ const MOBILE_B =
       });
     }
 
+    // Arranca ya con la forma correcta (desktop vs móvil)
+    const initial = wavePair();
+    if (wave && initial.a) wave.setAttribute("d", initial.a);
     startWaveLoop();
     desktopMq.addEventListener("change", startWaveLoop);
 
