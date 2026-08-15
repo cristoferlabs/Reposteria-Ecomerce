@@ -36,17 +36,17 @@ const CTA_CLASS: Record<CategoryAccent, string> = {
 
 const firstPanel = slides[0] ? PANEL_COLOR[slides[0].accent] : PANEL_COLOR.pink;
 
-/** Home Helias: diagonal desde esquina superior derecha (panel derecho completo) */
+/** Home: diagonal orgánica desde esquina superior derecha (no media pantalla). */
 const DESKTOP_A =
-  "M0.38,0 C0.34,0.16 0.48,0.28 0.42,0.44 C0.36,0.6 0.5,0.76 0.44,1 L1,1 L1,0 Z";
+  "M0.55,0 L1,0 L1,0.68 C0.92,0.62 0.86,0.48 0.8,0.36 C0.74,0.24 0.7,0.14 0.64,0.08 C0.6,0.04 0.57,0.01 0.55,0 Z";
 const DESKTOP_B =
-  "M0.44,0 C0.5,0.14 0.36,0.3 0.46,0.46 C0.56,0.62 0.4,0.8 0.5,1 L1,1 L1,0 Z";
+  "M0.5,0 L1,0 L1,0.74 C0.94,0.66 0.88,0.52 0.82,0.4 C0.76,0.28 0.7,0.16 0.62,0.1 C0.56,0.05 0.52,0.02 0.5,0 Z";
 
-/** Móvil: misma diagonal desde arriba-derecha */
+/** Móvil: misma diagonal, compacta */
 const MOBILE_A =
-  "M0.18,0 C0.22,0.2 0.4,0.34 0.32,0.5 C0.24,0.66 0.42,0.82 0.36,1 L1,1 L1,0 Z";
+  "M0.32,0 L1,0 L1,0.52 C0.88,0.46 0.78,0.36 0.66,0.26 C0.54,0.16 0.42,0.08 0.32,0 Z";
 const MOBILE_B =
-  "M0.26,0 C0.36,0.18 0.22,0.36 0.38,0.52 C0.5,0.68 0.3,0.84 0.42,1 L1,1 L1,0 Z";
+  "M0.26,0 L1,0 L1,0.58 C0.9,0.5 0.78,0.4 0.64,0.28 C0.5,0.16 0.36,0.08 0.26,0 Z";
 ---
 
 {
@@ -120,7 +120,7 @@ const MOBILE_B =
                   <h2 class="showcase-title mt-2 font-hero text-[clamp(3.25rem,11vw,8.25rem)] leading-[0.88] font-semibold tracking-tight text-charcoal lg:mt-4">
                     {slide.name}
                   </h2>
-                  <p class="showcase-tagline mt-4 max-w-md font-[family-name:var(--font-mono)] text-[0.9rem] leading-relaxed text-charcoal/75 sm:text-base lg:mt-6 lg:text-lg">
+                  <p class="showcase-tagline mt-4 max-w-md text-editorial text-[0.9rem] leading-relaxed text-charcoal/75 sm:text-base lg:mt-6 lg:text-lg">
                     {slide.tagline}
                   </p>
                   <a

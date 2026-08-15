@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  /* Paleta: cream limpio + acentos un poco más presentes (menos pastel lavado) */
+  /* Paleta */
   --color-cream: #f7f5f2;
   --color-pink-soft: #e4a9bd;
   --color-pink-strong: #b45f7f;
@@ -9,11 +9,13 @@
   --color-gold: #c4a86a;
   --color-gold-soft: #d9c48a;
 
-  /* Tipografía: serif elegante en titulares (estilo Helias) + sans ligera en UI/cuerpo */
+  /* Tipografía única del sitio (home + módulos) */
   --font-display: "Cormorant Garamond", "Times New Roman", serif;
-  --font-body: "DM Sans", "Helvetica Neue", sans-serif;
   --font-hero: "Cormorant Garamond", "Times New Roman", serif;
+  --font-body: "DM Sans", "Helvetica Neue", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-sans: "DM Sans", "Helvetica Neue", sans-serif;
+  --font-serif: "Cormorant Garamond", "Times New Roman", serif;
 }
 
 @layer base {
@@ -29,12 +31,19 @@
   h2,
   h3,
   h4 {
-    font-family: var(--font-display);
+    font-family: var(--font-hero);
     font-weight: 600;
     letter-spacing: -0.02em;
     color: var(--color-charcoal);
   }
+
+  /* Texto editorial (descripciones tipo Helias) */
+  .text-editorial {
+    font-family: var(--font-mono);
+    letter-spacing: 0.01em;
+  }
 }
+
 
 @keyframes marquee {
   from {

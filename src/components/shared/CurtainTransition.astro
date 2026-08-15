@@ -1,12 +1,11 @@
 ---
-// Transición de página tipo "cortina": panel negro con borde ondulado
-// (como la captura de referencia) que baja al salir y sube al entrar.
-// Se monta una vez en BaseLayout y intercepta clicks a rutas internas.
+// Transición de página tipo cortina: baja al salir, sube al entrar.
+// CSS transitions (fiables) + z-index alto para quedar por encima de nav/tienda/intro.
 ---
 
 <div id="page-curtain" class="page-curtain" aria-hidden="true">
   <div id="page-curtain-panel" class="page-curtain__panel">
-    <div class="page-curtain__fill" />
+    <div class="page-curtain__fill"></div>
     <svg class="page-curtain__wave" viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden="true">
       <path
         fill="currentColor"
@@ -16,11 +15,11 @@
   </div>
 </div>
 
-<style>
+<style is:global>
   .page-curtain {
     position: fixed;
     inset: 0;
-    z-index: 200;
+    z-index: 99999;
     pointer-events: none;
     visibility: hidden;
     color: #2a2421;
@@ -33,14 +32,24 @@
 
   .page-curtain__panel {
     position: absolute;
-    inset-inline: 0;
+    left: 0;
+    right: 0;
     top: 0;
+    width: 100%;
     display: flex;
     flex-direction: column;
-    width: 100%;
-    /* 100vh de relleno + ola: al estar en y=0 cubre toda la pantalla */
     transform: translate3d(0, -110%, 0);
     will-change: transform;
+    transition: transform 0.7s cubic-bezier(0.77, 0, 0.175, 1);
+  }
+
+  .page-curtain.is-covering .page-curtain__panel {
+    transform: translate3d(0, 0, 0);
+  }
+
+  .page-curtain.is-revealing .page-curtain__panel {
+    transform: translate3d(0, -110%, 0);
+    transition-duration: 0.65s;
   }
 
   .page-curtain__fill {
@@ -55,86 +64,66 @@
     width: 100%;
     height: clamp(64px, 10vw, 120px);
     margin-top: -1px;
+    color: inherit;
+  }
+
+  .page-curtain__wave path {
+    fill: currentColor;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .page-curtain__panel {
+      transition-duration: 0.01ms !important;
+    }
   }
 </style>
 
 <script>
-  import gsap from "gsap";
-
   const STORAGE_KEY = "arlet-curtain";
-  const COVER_MS = 0.7;
-  const REVEAL_MS = 0.65;
+  const COVER_MS = 720;
+  const REVEAL_MS = 680;
 
   function initCurtain() {
-    const rootEl = document.getElementById("page-curtain");
-    const panelEl = document.getElementById("page-curtain-panel");
-    if (!rootEl || !panelEl) return;
-    if (rootEl.dataset.curtainInit === "true") return;
-    rootEl.dataset.curtainInit = "true";
+    const root = document.getElementById("page-curtain");
+    const panel = document.getElementById("page-curtain-panel");
+    if (!root || !panel) return;
+    if (root.dataset.curtainInit === "true") return;
+    root.dataset.curtainInit = "true";
 
-    const root = rootEl;
-    const panel = panelEl;
-
-    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let busy = false;
 
-    function setCovered(covered: boolean) {
-      gsap.set(panel, { yPercent: covered ? 0 : -110 });
-      root.classList.toggle("is-active", covered);
+    function wait(ms: number) {
+      return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
     }
 
     function cover(): Promise<void> {
-      return new Promise((resolve) => {
-        root.classList.add("is-active");
-        if (prefersReducedMotion) {
-          setCovered(true);
-          resolve();
-          return;
-        }
-        gsap.fromTo(
-          panel,
-          { yPercent: -110 },
-          {
-            yPercent: 0,
-            duration: COVER_MS,
-            ease: "power3.inOut",
-            onComplete: () => resolve(),
-          },
-        );
-      });
+      root.classList.remove("is-revealing", "is-covering");
+      root.classList.add("is-active");
+      // Pintar un frame arriba (fuera de pantalla) y luego bajar
+      void panel.offsetHeight;
+      root.classList.add("is-covering");
+      return wait(COVER_MS);
     }
 
     function reveal(): Promise<void> {
-      return new Promise((resolve) => {
-        root.classList.add("is-active");
-        if (prefersReducedMotion) {
-          setCovered(false);
-          root.classList.remove("is-active");
-          resolve();
-          return;
-        }
-        gsap.fromTo(
-          panel,
-          { yPercent: 0 },
-          {
-            yPercent: -110,
-            duration: REVEAL_MS,
-            ease: "power3.inOut",
-            onComplete: () => {
-              root.classList.remove("is-active");
-              resolve();
-            },
-          },
-        );
+      root.classList.add("is-active", "is-covering");
+      void panel.offsetHeight;
+      root.classList.add("is-revealing");
+      root.classList.remove("is-covering");
+      return wait(REVEAL_MS).then(() => {
+        root.classList.remove("is-active", "is-revealing", "is-covering");
       });
     }
 
-    // Llegada desde otra página: cortina ya tapando → subir y revelar
+    // Llegada: cortina tapando → subir
     if (sessionStorage.getItem(STORAGE_KEY) === "1") {
       sessionStorage.removeItem(STORAGE_KEY);
-      setCovered(true);
-      // Pequeño delay para que pinte el DOM nuevo detrás
+      root.classList.add("is-active", "is-covering");
+      // Sin transición en el frame inicial (ya cubierto)
+      panel.style.transition = "none";
+      void panel.offsetHeight;
       requestAnimationFrame(() => {
+        panel.style.transition = "";
         void reveal();
       });
     }
@@ -145,7 +134,9 @@
       if (anchor.hasAttribute("download")) return false;
 
       const href = anchor.getAttribute("href");
-      if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) return false;
+      if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) {
+        return false;
+      }
 
       let url: URL;
       try {
@@ -156,55 +147,60 @@
 
       if (url.origin !== window.location.origin) return false;
       if (url.pathname.startsWith("/api/")) return false;
-      // Misma URL (solo hash) → no cortina
       if (url.pathname === window.location.pathname && url.search === window.location.search) return false;
       return true;
+    }
+
+    async function navigateWithCurtain(href: string) {
+      if (busy) return;
+      busy = true;
+      try {
+        await cover();
+        sessionStorage.setItem(STORAGE_KEY, "1");
+        window.location.assign(href);
+      } catch {
+        busy = false;
+        window.location.assign(href);
+      }
     }
 
     document.addEventListener(
       "click",
       (event) => {
-        if (busy) {
-          event.preventDefault();
-          return;
-        }
         if (event.defaultPrevented) return;
         if (event.button !== 0) return;
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
 
-        const anchor = (event.target as Element | null)?.closest?.("a");
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+
+        const anchor = target.closest("a");
         if (!anchor || !(anchor instanceof HTMLAnchorElement)) return;
         if (!isInternalNav(anchor)) return;
 
         event.preventDefault();
-        const href = anchor.href;
-        busy = true;
-
-        void cover().then(() => {
-          sessionStorage.setItem(STORAGE_KEY, "1");
-          window.location.assign(href);
-        });
+        event.stopPropagation();
+        void navigateWithCurtain(anchor.href);
       },
       true,
     );
 
-    // API pública: otros módulos pueden forzar cortina + navegación
     window.addEventListener("arlet:navigate", ((event: CustomEvent<{ href: string }>) => {
       const href = event.detail?.href;
-      if (!href || busy) return;
-      busy = true;
-      void cover().then(() => {
-        sessionStorage.setItem(STORAGE_KEY, "1");
-        window.location.assign(href);
-      });
+      if (!href) return;
+      void navigateWithCurtain(href);
     }) as EventListener);
 
-    // Back/forward: si el navegador restaura sin reload completo, igual revelamos
     window.addEventListener("pageshow", (event) => {
       if (event.persisted && sessionStorage.getItem(STORAGE_KEY) === "1") {
         sessionStorage.removeItem(STORAGE_KEY);
-        setCovered(true);
-        void reveal();
+        root.classList.add("is-active", "is-covering");
+        panel.style.transition = "none";
+        void panel.offsetHeight;
+        requestAnimationFrame(() => {
+          panel.style.transition = "";
+          void reveal();
+        });
       }
     });
   }

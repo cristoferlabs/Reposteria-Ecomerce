@@ -10,7 +10,7 @@ import { tiendaBlocks, tiendaCatalogHref } from "../../config/site";
     class="absolute inset-x-0 bottom-0 flex max-h-[78vh] flex-col border-t border-charcoal/10 bg-cream"
   >
     <div class="mx-auto flex w-full max-w-7xl shrink-0 items-center justify-between gap-4 px-4 pt-5 pb-3 md:px-8 md:pt-6">
-      <p class="font-display text-2xl font-semibold tracking-wide text-charcoal sm:text-3xl">Tienda</p>
+      <p class="font-hero text-3xl font-semibold tracking-wide text-charcoal sm:text-4xl">Tienda</p>
       <button
         type="button"
         id="tienda-close"
@@ -36,10 +36,10 @@ import { tiendaBlocks, tiendaCatalogHref } from "../../config/site";
                   class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
               </div>
-              <p class="mt-3 font-display text-base font-semibold tracking-wide text-charcoal transition-colors group-hover:text-pink-strong sm:text-lg">
+              <p class="mt-3 font-hero text-lg font-semibold tracking-wide text-charcoal transition-colors group-hover:text-pink-strong sm:text-xl">
                 {block.name}
               </p>
-              <p class="mt-1 font-body text-sm leading-snug text-charcoal/70">{block.description}</p>
+              <p class="mt-1 text-editorial text-sm leading-snug text-charcoal/70">{block.description}</p>
             </a>
           ))
         }

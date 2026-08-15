@@ -4,61 +4,76 @@ import { siteConfig, footerNav } from "../../config/site";
 ---
 
 <BaseLayout title={`Datos sobre la empresa — ${siteConfig.name}`} description="Información de contacto y datos de Arlet.">
-  <div class="mx-auto max-w-3xl px-4 py-16 md:px-6 md:py-24">
-    <p class="font-body text-xs font-medium tracking-[0.16em] text-pink-strong uppercase">Empresa</p>
-    <h1 class="mt-3 font-body text-4xl font-semibold tracking-tight text-charcoal sm:text-5xl">
-      Datos sobre la empresa
-    </h1>
+  <section class="relative min-h-[70dvh] overflow-hidden bg-white">
+    <div
+      class="pointer-events-none absolute inset-0 z-0"
+      aria-hidden="true"
+      style="background-image: repeating-linear-gradient(to right, rgba(44,38,35,0.06) 0, rgba(44,38,35,0.06) 1px, transparent 1px, transparent 20%);"
+    />
 
-    <div class="mt-8 space-y-6 font-body text-base leading-relaxed text-charcoal/75">
-      <p>
-        <span class="font-semibold text-charcoal">{siteConfig.name}</span>
-        <br />
-        {siteConfig.tagline}
-      </p>
-      <p>
-        Pedidos y consultas por WhatsApp o desde el carrito del sitio. Envíos y recojo en Lima, con
-        pedidos preparados para la fecha que indiques.
-      </p>
-      <p>País de operación: Perú (S/).</p>
-    </div>
+    <div class="relative z-10 mx-auto max-w-[1400px] px-6 py-16 md:px-12 md:py-24">
+      <nav class="font-body text-[0.7rem] font-medium tracking-[0.18em] uppercase">
+        <a href="/" class="text-charcoal hover:text-pink-strong">Inicio</a>
+        <span class="mx-2 text-charcoal/35">/</span>
+        <span class="text-charcoal/45">Datos sobre la empresa</span>
+      </nav>
 
-    <div class="mt-12 grid grid-cols-1 gap-10 border-t border-charcoal/10 pt-10 sm:grid-cols-2">
-      <div>
-        <p class="font-body text-xs font-semibold tracking-[0.14em] text-charcoal/50 uppercase">Atención al cliente</p>
-        <ul class="mt-4 space-y-2 font-body text-sm text-charcoal/80">
-          {
-            footerNav.atencionAlCliente.map((item) => (
-              <li>
-                <a href={item.href} class="transition-colors hover:text-pink-strong">
-                  {item.label}
-                </a>
-              </li>
-            ))
-          }
-          <li>
-            <button type="button" id="open-tour-trigger" class="transition-colors hover:text-pink-strong">
-              ¿Cómo funciona?
-            </button>
-          </li>
-        </ul>
+      <h1 class="mt-8 font-hero text-[clamp(2.75rem,9vw,6.5rem)] leading-[0.9] font-semibold tracking-tight text-charcoal">
+        Datos sobre la empresa
+      </h1>
+      <p class="mt-8 max-w-2xl text-editorial text-sm leading-relaxed text-charcoal/70 sm:text-base">
+        Pedidos y consultas por WhatsApp o desde el carrito del sitio. Envíos y recojo en Lima, con pedidos
+        preparados para la fecha que indiques.
+      </p>
+
+      <div class="mt-12 max-w-xl space-y-4 text-editorial text-sm leading-relaxed text-charcoal/75 sm:text-base">
+        <p>
+          <span class="font-hero text-2xl font-semibold text-charcoal">{siteConfig.name}</span>
+          <br />
+          {siteConfig.tagline}
+        </p>
+        <p>País de operación: Perú (S/).</p>
       </div>
-      <div>
-        <p class="font-body text-xs font-semibold tracking-[0.14em] text-charcoal/50 uppercase">Info</p>
-        <ul class="mt-4 space-y-2 font-body text-sm text-charcoal/80">
-          {
-            footerNav.info.map((item) => (
-              <li>
-                <a href={item.href} class="transition-colors hover:text-pink-strong">
-                  {item.label}
-                </a>
-              </li>
-            ))
-          }
-        </ul>
+
+      <div class="mt-16 grid grid-cols-1 gap-12 border-t border-charcoal/10 pt-12 sm:grid-cols-2">
+        <div>
+          <p class="font-body text-[0.65rem] font-semibold tracking-[0.18em] text-charcoal/40 uppercase">
+            Atención al cliente
+          </p>
+          <ul class="mt-4 space-y-2 text-editorial text-sm text-charcoal/80">
+            {
+              footerNav.atencionAlCliente.map((item) => (
+                <li>
+                  <a href={item.href} class="transition-colors hover:text-pink-strong">
+                    {item.label}
+                  </a>
+                </li>
+              ))
+            }
+            <li>
+              <button type="button" id="open-tour-trigger" class="transition-colors hover:text-pink-strong">
+                ¿Cómo funciona?
+              </button>
+            </li>
+          </ul>
+        </div>
+        <div>
+          <p class="font-body text-[0.65rem] font-semibold tracking-[0.18em] text-charcoal/40 uppercase">Info</p>
+          <ul class="mt-4 space-y-2 text-editorial text-sm text-charcoal/80">
+            {
+              footerNav.info.map((item) => (
+                <li>
+                  <a href={item.href} class="transition-colors hover:text-pink-strong">
+                    {item.label}
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+        </div>
       </div>
     </div>
-  </div>
+  </section>
 </BaseLayout>
 
 <script>

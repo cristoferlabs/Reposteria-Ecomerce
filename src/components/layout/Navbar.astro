@@ -65,7 +65,7 @@ const navLink =
       </button>
 
       <a href="/" class={`hidden min-w-0 items-baseline gap-3 sm:flex ${fg}`}>
-        <span class="font-display text-2xl font-semibold tracking-wide sm:text-3xl">{siteConfig.name.toUpperCase()}</span>
+        <span class="font-hero text-2xl font-semibold tracking-wide sm:text-3xl">{siteConfig.name.toUpperCase()}</span>
         <span class="hidden h-5 w-px bg-charcoal/20 lg:block" aria-hidden="true" />
         <span class={`hidden font-body text-xs font-medium tracking-[0.16em] uppercase lg:inline ${fgMuted}`}>
           {shortTagline}
@@ -78,7 +78,7 @@ const navLink =
       href="/"
       class={`absolute left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2 sm:hidden ${fg}`}
     >
-      <span class="font-display text-xl font-semibold tracking-wide">{siteConfig.name.toUpperCase()}</span>
+      <span class="font-hero text-xl font-semibold tracking-wide">{siteConfig.name.toUpperCase()}</span>
     </a>
 
     <div class="z-10 flex items-center gap-3 sm:gap-6 md:gap-8">
@@ -172,7 +172,7 @@ const navLink =
         <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round" />
       </svg>
     </button>
-    <span class="font-display text-2xl font-semibold tracking-wide text-charcoal">{siteConfig.name.toUpperCase()}</span>
+    <span class="font-hero text-2xl font-semibold tracking-wide text-charcoal">{siteConfig.name.toUpperCase()}</span>
     <div class="h-12 w-12" aria-hidden="true" />
   </div>
 
@@ -180,13 +180,13 @@ const navLink =
     <button
       type="button"
       id="nav-fullscreen-tienda"
-      class="py-2 text-left font-display text-5xl font-semibold tracking-tight text-charcoal transition-colors hover:text-pink-strong sm:text-6xl"
+      class="py-2 text-left font-hero text-5xl font-semibold tracking-tight text-charcoal transition-colors hover:text-pink-strong sm:text-6xl"
     >
       Tienda
     </button>
     <a
       href={catalogHref}
-      class="py-2 font-display text-5xl font-semibold tracking-tight text-charcoal transition-colors hover:text-pink-strong sm:text-6xl"
+      class="py-2 font-hero text-5xl font-semibold tracking-tight text-charcoal transition-colors hover:text-pink-strong sm:text-6xl"
     >
       Catálogo
     </a>
@@ -194,7 +194,7 @@ const navLink =
       acercaDe && (
         <a
           href={acercaDe.href}
-          class="py-2 font-display text-5xl font-semibold tracking-tight text-charcoal transition-colors hover:text-pink-strong sm:text-6xl"
+          class="py-2 font-hero text-5xl font-semibold tracking-tight text-charcoal transition-colors hover:text-pink-strong sm:text-6xl"
         >
           {acercaDe.label}
         </a>
@@ -206,7 +206,7 @@ const navLink =
         .map((item) => (
           <a
             href={item.href}
-            class="py-2 font-display text-5xl font-semibold tracking-tight text-charcoal transition-colors hover:text-pink-strong sm:text-6xl"
+            class="py-2 font-hero text-5xl font-semibold tracking-tight text-charcoal transition-colors hover:text-pink-strong sm:text-6xl"
           >
             {item.label}
           </a>
@@ -216,7 +216,7 @@ const navLink =
       session?.role === "admin" && (
         <a
           href="/admin/solicitudes"
-          class="py-2 font-display text-5xl font-semibold tracking-tight text-charcoal transition-colors hover:text-pink-strong sm:text-6xl"
+          class="py-2 font-hero text-5xl font-semibold tracking-tight text-charcoal transition-colors hover:text-pink-strong sm:text-6xl"
         >
           Admin
         </a>
